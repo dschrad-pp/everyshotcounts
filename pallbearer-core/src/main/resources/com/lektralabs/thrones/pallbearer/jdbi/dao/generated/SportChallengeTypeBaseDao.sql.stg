@@ -1,0 +1,69 @@
+group SportChallengeTypeBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , sport_id
+          , sport_challenge_code
+          , name
+          , description
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_sport_challenge_type
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_sport_challenge_type
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_sport_challenge_type (
+            id
+          , sport_id
+          , sport_challenge_code
+          , name
+          , description
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :sportId
+          , :sportChallengeCode
+          , :name
+          , :description
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_sport_challenge_type
+        SET sport_id = :sportId
+          , sport_challenge_code = :sportChallengeCode
+          , name = :name
+          , description = :description
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_sport_challenge_type WHERE id = :id
+>>

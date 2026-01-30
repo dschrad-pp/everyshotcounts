@@ -1,0 +1,85 @@
+group DrillAttemptBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , drill_id
+          , media_id
+          , start_time
+          , end_time
+          , elapsed_time
+          , score
+          , retries
+          , drill_attempt_status
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_drill_attempt
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_drill_attempt
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_drill_attempt (
+            id
+          , drill_id
+          , media_id
+          , start_time
+          , end_time
+          , elapsed_time
+          , score
+          , retries
+          , drill_attempt_status
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :drillId
+          , :mediaId
+          , :startTime
+          , :endTime
+          , :elapsedTime
+          , :score
+          , :retries
+          , :drillAttemptStatus
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_drill_attempt
+        SET drill_id = :drillId
+          , media_id = :mediaId
+          , start_time = :startTime
+          , end_time = :endTime
+          , elapsed_time = :elapsedTime
+          , score = :score
+          , retries = :retries
+          , drill_attempt_status = :drillAttemptStatus
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_drill_attempt WHERE id = :id
+>>

@@ -1,0 +1,81 @@
+group AddressBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , address_type
+          , geo_latitude
+          , geo_longitude
+          , address
+          , city
+          , state
+          , zip
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_address
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_address
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_address (
+            id
+          , address_type
+          , geo_latitude
+          , geo_longitude
+          , address
+          , city
+          , state
+          , zip
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :addressType
+          , :geoLatitude
+          , :geoLongitude
+          , :address
+          , :city
+          , :state
+          , :zip
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_address
+        SET address_type = :addressType
+          , geo_latitude = :geoLatitude
+          , geo_longitude = :geoLongitude
+          , address = :address
+          , city = :city
+          , state = :state
+          , zip = :zip
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_address WHERE id = :id
+>>

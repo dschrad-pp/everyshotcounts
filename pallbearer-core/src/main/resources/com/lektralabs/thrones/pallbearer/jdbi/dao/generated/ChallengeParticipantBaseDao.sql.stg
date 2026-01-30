@@ -1,0 +1,46 @@
+group ChallengeParticipantBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , challenge_id
+          , participant_user_id
+          , participant_role_code
+       FROM t_challenge_participant
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_challenge_participant
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_challenge_participant (
+            id
+          , challenge_id
+          , participant_user_id
+          , participant_role_code
+     ) VALUES (
+            :id
+          , :challengeId
+          , :participantUserId
+          , :participantRoleCode
+     )
+>>
+
+update() ::= <<
+     UPDATE t_challenge_participant
+        SET challenge_id = :challengeId
+          , participant_user_id = :participantUserId
+          , participant_role_code = :participantRoleCode
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_challenge_participant WHERE id = :id
+>>

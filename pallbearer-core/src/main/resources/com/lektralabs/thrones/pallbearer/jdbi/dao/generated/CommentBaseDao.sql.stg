@@ -1,0 +1,69 @@
+group CommentBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , user_id
+          , comment_type
+          , comment_value
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_comment
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_comment
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_comment (
+            id
+          , user_id
+          , comment_type
+          , comment_value
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :userId
+          , :commentType
+          , :commentValue
+          , :statusCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_comment
+        SET user_id = :userId
+          , comment_type = :commentType
+          , comment_value = :commentValue
+          , status_code = :statusCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_comment WHERE id = :id
+>>

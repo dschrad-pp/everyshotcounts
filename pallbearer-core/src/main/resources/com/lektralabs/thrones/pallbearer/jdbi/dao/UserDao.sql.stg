@@ -1,0 +1,147 @@
+group UserDao;
+
+select() ::= <<
+     SELECT id
+          , email
+          , user_alias
+          , username
+          , contact_id
+          , keycloak_id
+          , avatar_byte_array
+          , avatar_mime_type
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_user
+      WHERE id = :id
+>>
+
+selectByEmail() ::= <<
+     SELECT id
+          , email
+          , user_alias
+          , username
+          , contact_id
+          , keycloak_id
+          , avatar_byte_array
+          , avatar_mime_type
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_user
+      WHERE lower(email) = lower(:email)
+>>
+
+selectByUsername() ::= <<
+     SELECT id
+          , email
+          , user_alias
+          , username
+          , contact_id
+          , keycloak_id
+          , avatar_byte_array
+          , avatar_mime_type
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_user
+      WHERE lower(username) = lower(:username)
+>>
+
+selectByRegistrationCode() ::= <<
+     SELECT u.id
+          , u.email
+          , u.user_alias
+          , u.username
+          , u.contact_id
+          , u.keycloak_id
+          , u.avatar_byte_array
+          , u.avatar_mime_type
+          , u.status_code
+          , u.creation_date
+          , u.modification_date
+          , u.created_by_id
+          , u.modified_by_id
+          , u.version
+       FROM t_user u
+       JOIN t_user_property up ON up.user_id = u.id
+      WHERE up.property_key = 'user.registration.sixdigit.code'
+        AND up.property_value = :registrationCode
+>>
+
+insert() ::= <<
+     INSERT INTO t_user (
+            id
+          , email
+          , user_alias
+          , username
+          , contact_id
+          , keycloak_id
+          , avatar_byte_array
+          , avatar_mime_type
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :email
+          , :userAlias
+          , :username
+          , :contactId
+          , :keycloakId
+          , :avatarByteArray
+          , :avatarMimeType
+          , :statusCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_user
+        SET email = :email
+          , user_alias = :userAlias
+          , username = :username
+          , contact_id = :contactId
+          , keycloak_id = :keycloakId
+          , avatar_byte_array = :avatarByteArray
+          , avatar_mime_type = :avatarMimeType
+          , status_code = :statusCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_user WHERE id = :id
+>>
+
+selectAllBasic() ::= <<
+     SELECT u.id
+          , u.email
+          , u.username
+          , u.keycloak_id AS keycloakId
+          , u.status_code AS statusCode
+          , c.first_name AS firstName
+          , c.last_name AS lastName
+          , c.telephone AS telephone
+       FROM t_user u
+  LEFT JOIN t_contact c ON c.id = u.contact_id
+>>

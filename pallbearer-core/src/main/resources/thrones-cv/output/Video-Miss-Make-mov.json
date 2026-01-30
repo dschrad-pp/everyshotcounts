@@ -1,0 +1,93 @@
+{
+  "attempts": "7",
+  "frameresults": {
+    "attempt": [
+      {
+        "attempt_framecount": "90",
+        "count": "1",
+        "total_framecount": "1301"
+      },
+      {
+        "attempt_framecount": "273",
+        "count": "2",
+        "total_framecount": "1301"
+      },
+      {
+        "attempt_framecount": "493",
+        "count": "3",
+        "total_framecount": "1301"
+      },
+      {
+        "attempt_framecount": "598",
+        "count": "4",
+        "total_framecount": "1301"
+      },
+      {
+        "attempt_framecount": "881",
+        "count": "5",
+        "total_framecount": "1301"
+      },
+      {
+        "attempt_framecount": "1124",
+        "count": "6",
+        "total_framecount": "1301"
+      },
+      {
+        "attempt_framecount": "1288",
+        "count": "7",
+        "total_framecount": "1301"
+      }
+    ],
+    "error": null,
+    "make": [
+      {
+        "count": "1",
+        "make_framecount": "96",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "2",
+        "make_framecount": "194",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "3",
+        "make_framecount": "272",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "4",
+        "make_framecount": "358",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "5",
+        "make_framecount": "606",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "6",
+        "make_framecount": "880",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "7",
+        "make_framecount": "1123",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "8",
+        "make_framecount": "1168",
+        "total_framecount": "1301"
+      },
+      {
+        "count": "9",
+        "make_framecount": "1285",
+        "total_framecount": "1301"
+      }
+    ]
+  },
+  "makes": "9",
+  "message": "Video successfully processed",
+  "processedpath": "http://44.240.159.218:5000/static/outputs/Video-Miss-Make_sboles_2023-04-25 18:42:10.767172M9A7_.mp4"
+}

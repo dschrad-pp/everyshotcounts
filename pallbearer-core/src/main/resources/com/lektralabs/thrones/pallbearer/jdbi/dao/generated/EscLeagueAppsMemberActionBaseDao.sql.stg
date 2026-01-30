@@ -1,0 +1,109 @@
+group EscLeagueAppsMemberActionBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , member_id
+          , registration_id
+          , user_id
+          , username_la
+          , username_esc
+          , email
+          , mobile_phone
+          , first_name
+          , last_name
+          , birth_date
+          , registration_status
+          , payment_status
+          , status_code
+          , action_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_esc_league_apps_member_action
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_esc_league_apps_member_action
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_esc_league_apps_member_action (
+            id
+          , member_id
+          , registration_id
+          , user_id
+          , username_la
+          , username_esc
+          , email
+          , mobile_phone
+          , first_name
+          , last_name
+          , birth_date
+          , registration_status
+          , payment_status
+          , status_code
+          , action_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :memberId
+          , :registrationId
+          , :userId
+          , :usernameLa
+          , :usernameEsc
+          , :email
+          , :mobilePhone
+          , :firstName
+          , :lastName
+          , :birthDate
+          , :registrationStatus
+          , :paymentStatus
+          , :statusCode
+          , :actionCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_esc_league_apps_member_action
+        SET member_id = :memberId
+          , registration_id = :registrationId
+          , user_id = :userId
+          , username_la = :usernameLa
+          , username_esc = :usernameEsc
+          , email = :email
+          , mobile_phone = :mobilePhone
+          , first_name = :firstName
+          , last_name = :lastName
+          , birth_date = :birthDate
+          , registration_status = :registrationStatus
+          , payment_status = :paymentStatus
+          , status_code = :statusCode
+          , action_code = :actionCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_esc_league_apps_member_action WHERE id = :id
+>>

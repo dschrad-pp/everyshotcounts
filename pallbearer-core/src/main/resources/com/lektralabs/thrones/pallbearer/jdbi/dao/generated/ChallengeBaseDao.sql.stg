@@ -1,0 +1,109 @@
+group ChallengeBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , name
+          , description
+          , start_time
+          , end_time
+          , sport_challenge_type_id
+          , challenge_type_code
+          , challenge_visibility_code
+          , allow_retry_code
+          , retry_max
+          , allow_open_invite_code
+          , time_limit_ms
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+          , cost_of_entry
+          , number_of_shots
+          , personalized_intro
+       FROM t_challenge
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_challenge
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_challenge (
+            id
+          , name
+          , description
+          , start_time
+          , end_time
+          , sport_challenge_type_id
+          , challenge_type_code
+          , challenge_visibility_code
+          , allow_retry_code
+          , retry_max
+          , allow_open_invite_code
+          , time_limit_ms
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+          , cost_of_entry
+          , number_of_shots
+          , personalized_intro
+     ) VALUES (
+            :id
+          , :name
+          , :description
+          , :startTime
+          , :endTime
+          , :sportChallengeTypeId
+          , :challengeTypeCode
+          , :challengeVisibilityCode
+          , :allowRetryCode
+          , :retryMax
+          , :allowOpenInviteCode
+          , :timeLimitMs
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+          , :costOfEntry
+          , :numberOfShots
+          , :personalizedIntro
+     )
+>>
+
+update() ::= <<
+     UPDATE t_challenge
+        SET name = :name
+          , description = :description
+          , start_time = :startTime
+          , end_time = :endTime
+          , sport_challenge_type_id = :sportChallengeTypeId
+          , challenge_type_code = :challengeTypeCode
+          , challenge_visibility_code = :challengeVisibilityCode
+          , allow_retry_code = :allowRetryCode
+          , retry_max = :retryMax
+          , allow_open_invite_code = :allowOpenInviteCode
+          , time_limit_ms = :timeLimitMs
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+          , cost_of_entry = :costOfEntry
+          , number_of_shots = :numberOfShots
+          , personalized_intro = :personalizedIntro
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_challenge WHERE id = :id
+>>

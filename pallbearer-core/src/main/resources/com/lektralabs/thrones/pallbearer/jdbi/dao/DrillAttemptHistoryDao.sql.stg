@@ -1,0 +1,49 @@
+group DrillAttemptHistoryDao;
+
+insertHistory() ::=
+<<
+INSERT INTO t_drill_attempt_history (
+    id,
+    user_id,
+    drill_id,
+    attempts_detected,
+    attempts_reported,
+    makes_detected,
+    makes_reported,
+    recorded_at
+) VALUES (
+    :id,
+    :userId,
+    :drillId,
+    :attemptsDetected,
+    :attemptsReported,
+    :makesDetected,
+    :makesReported,
+    NOW()
+);
+>>
+
+findByDrillId() ::=
+<<
+SELECT *
+FROM t_drill_attempt_history
+WHERE drill_id = :drillId
+ORDER BY recorded_at DESC;
+>>
+
+findByUserId() ::=
+<<
+SELECT *
+FROM t_drill_attempt_history
+WHERE user_id = :userId
+ORDER BY recorded_at DESC;
+>>
+
+findByDrillIdAndUserId() ::=
+<<
+SELECT *
+FROM t_drill_attempt_history
+WHERE drill_id = :drillId
+  AND user_id = :userId
+ORDER BY recorded_at DESC;
+>>

@@ -1,0 +1,195 @@
+-- DELETE FROM t_contact WHERE id = 'b56ba758-7bc9-423d-9b82-5bccb189046d';
+-- INSERT INTO t_contact (
+--   id,
+--   contact_type,
+--   first_name,
+--   middle_name,
+--   last_name,
+--   email,
+--   telephone,
+--   birth_date,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   'b56ba758-7bc9-423d-9b82-5bccb189046d',
+--   'USER',
+--   'Alice',
+--   NULL,
+--   'Adams',
+--   'alice@lektralabs.com',
+--   '(515) 555-1234',
+--   0,
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- DELETE FROM t_user WHERE id = '8995e8e9-eb76-4b76-8361-9223b5c8272f';
+-- INSERT INTO t_user (
+--   id,
+--   email,
+--   user_alias,
+--   username,
+--   contact_id,
+--   keycloak_id,
+--   status_code,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   '8995e8e9-eb76-4b76-8361-9223b5c8272f',
+--   'alice@lektralabs.com',
+--   'alice',
+--   'alice',
+--   'b56ba758-7bc9-423d-9b82-5bccb189046d',
+--   '01302d53-8229-47d1-afd4-09addbf2ab99',
+--   'ACTIVE',
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user_role_xref (
+--   user_id,
+--   role_id
+-- ) VALUES (
+--   '8995e8e9-eb76-4b76-8361-9223b5c8272f',
+--   '840d3e48-340d-45a0-85ca-4ddf01dc0877'
+-- );
+-- DELETE FROM t_contact WHERE id = 'ea7a0c33-5917-4530-84e2-2876e1b9ed53';
+-- INSERT INTO t_contact (
+--   id,
+--   contact_type,
+--   first_name,
+--   middle_name,
+--   last_name,
+--   email,
+--   telephone,
+--   birth_date,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   'ea7a0c33-5917-4530-84e2-2876e1b9ed53',
+--   'USER',
+--   'Bob',
+--   NULL,
+--   'Barker',
+--   'bob@lektralabs.com',
+--   '(515) 555-1234',
+--   0,
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- DELETE FROM t_user WHERE id = 'ded998bc-e221-463b-b621-c10983555b4d';
+-- INSERT INTO t_user (
+--   id,
+--   email,
+--   user_alias,
+--   username,
+--   contact_id,
+--   keycloak_id,
+--   status_code,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   'ded998bc-e221-463b-b621-c10983555b4d',
+--   'bob@lektralabs.com',
+--   'bob',
+--   'bob',
+--   'ea7a0c33-5917-4530-84e2-2876e1b9ed53',
+--   'bfccff17-052d-4cd4-8e2a-3b79093c7743',
+--   'ACTIVE',
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user_role_xref (
+--   user_id,
+--   role_id
+-- ) VALUES (
+--   'ded998bc-e221-463b-b621-c10983555b4d',
+--   'a3c2a880-b706-41ca-a9c1-b1aba6d272d3'
+-- );
+-- DELETE FROM t_contact WHERE id = '6a3b1ff2-0c1d-4610-a2a2-e8b4f0e215d8';
+-- INSERT INTO t_contact (
+--   id,
+--   contact_type,
+--   first_name,
+--   middle_name,
+--   last_name,
+--   email,
+--   telephone,
+--   birth_date,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   '6a3b1ff2-0c1d-4610-a2a2-e8b4f0e215d8',
+--   'USER',
+--   'Eve',
+--   NULL,
+--   'Evans',
+--   'eve@lektralabs.com',
+--   '(515) 555-1234',
+--   0,
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- DELETE FROM t_user WHERE id = 'fad2c32f-3952-42ae-ad0c-3f9feb703e6c';
+-- INSERT INTO t_user (
+--   id,
+--   email,
+--   user_alias,
+--   username,
+--   contact_id,
+--   keycloak_id,
+--   status_code,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   'fad2c32f-3952-42ae-ad0c-3f9feb703e6c',
+--   'eve@lektralabs.com',
+--   'eve',
+--   'eve',
+--   '6a3b1ff2-0c1d-4610-a2a2-e8b4f0e215d8',
+--   '96d370a6-5cfe-4a6a-9b76-4249482361cb',
+--   'ACTIVE',
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user_role_xref (
+--   user_id,
+--   role_id
+-- ) VALUES (
+--   'fad2c32f-3952-42ae-ad0c-3f9feb703e6c',
+--   'a3c2a880-b706-41ca-a9c1-b1aba6d272d3'
+-- );

@@ -1,0 +1,118 @@
+group LeagueAppsMemberBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT last_login
+          , zip_code
+          , gender
+          , city
+          , address_1
+          , date_joined
+          , group_id
+          , type
+          , user_id
+          , birth_date
+          , first_name
+          , last_updated
+          , group_name
+          , deleted
+          , mobile_phone
+          , newsletter_opt_in
+          , org_account_role
+          , user_profile_id
+          , id
+          , state
+          , email
+          , username
+       FROM t_league_apps_member
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_league_apps_member
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_league_apps_member (
+            last_login
+          , zip_code
+          , gender
+          , city
+          , address_1
+          , date_joined
+          , group_id
+          , type
+          , user_id
+          , birth_date
+          , first_name
+          , last_updated
+          , group_name
+          , deleted
+          , mobile_phone
+          , newsletter_opt_in
+          , org_account_role
+          , user_profile_id
+          , id
+          , state
+          , email
+          , username
+     ) VALUES (
+            :lastLogin
+          , :zipCode
+          , :gender
+          , :city
+          , :address1
+          , :dateJoined
+          , :groupId
+          , :type
+          , :userId
+          , :birthDate
+          , :firstName
+          , :lastUpdated
+          , :groupName
+          , :deleted
+          , :mobilePhone
+          , :newsletterOptIn
+          , :orgAccountRole
+          , :userProfileId
+          , :id
+          , :state
+          , :email
+          , :username
+     )
+>>
+
+update() ::= <<
+     UPDATE t_league_apps_member
+        SET last_login = :lastLogin
+          , zip_code = :zipCode
+          , gender = :gender
+          , city = :city
+          , address_1 = :address1
+          , date_joined = :dateJoined
+          , group_id = :groupId
+          , type = :type
+          , user_id = :userId
+          , birth_date = :birthDate
+          , first_name = :firstName
+          , last_updated = :lastUpdated
+          , group_name = :groupName
+          , deleted = :deleted
+          , mobile_phone = :mobilePhone
+          , newsletter_opt_in = :newsletterOptIn
+          , org_account_role = :orgAccountRole
+          , user_profile_id = :userProfileId
+          , state = :state
+          , email = :email
+          , username = :username
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_league_apps_member WHERE id = :id
+>>

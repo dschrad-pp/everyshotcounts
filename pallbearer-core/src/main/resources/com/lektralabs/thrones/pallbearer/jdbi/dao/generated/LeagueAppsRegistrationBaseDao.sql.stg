@@ -1,0 +1,258 @@
+group LeagueAppsRegistrationBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT registration_status
+          , parent_email
+          , registration_start_date
+          , group_id
+          , payment_plan_status
+          , master_program_id
+          , last_updated
+          , price
+          , program_name
+          , registration_id
+          , season
+          , id
+          , state
+          , email
+          , outstanding_balance
+          , is_staff
+          , created
+          , parent_user_id
+          , waiver_accepted_timestamp
+          , first_name
+          , parent_first_name
+          , group_name
+          , user_profile_id
+          , user_type
+          , last_name
+          , role
+          , gender
+          , city
+          , site_name
+          , parent_phone
+          , amount_paid
+          , registration_end_date
+          , program_state
+          , program_end_date
+          , current_grade_level
+          , last_payment_date
+          , payment_status
+          , payment_plan
+          , program_type
+          , parent_last_name
+          , address_1
+          , total_amount_due
+          , user_name
+          , user_id
+          , birth_date
+          , is_co_captain
+          , sport_id
+          , phone
+          , current_club_team_affiliation
+          , master_program_name
+          , general_terms_of_service
+          , team_id
+          , current_school_attending
+          , invoice_id
+          , program_start_date
+          , sport
+          , program_id
+       FROM t_league_apps_registration
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_league_apps_registration
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_league_apps_registration (
+            registration_status
+          , parent_email
+          , registration_start_date
+          , group_id
+          , payment_plan_status
+          , master_program_id
+          , last_updated
+          , price
+          , program_name
+          , registration_id
+          , season
+          , id
+          , state
+          , email
+          , outstanding_balance
+          , is_staff
+          , created
+          , parent_user_id
+          , waiver_accepted_timestamp
+          , first_name
+          , parent_first_name
+          , group_name
+          , user_profile_id
+          , user_type
+          , last_name
+          , role
+          , gender
+          , city
+          , site_name
+          , parent_phone
+          , amount_paid
+          , registration_end_date
+          , program_state
+          , program_end_date
+          , current_grade_level
+          , last_payment_date
+          , payment_status
+          , payment_plan
+          , program_type
+          , parent_last_name
+          , address_1
+          , total_amount_due
+          , user_name
+          , user_id
+          , birth_date
+          , is_co_captain
+          , sport_id
+          , phone
+          , current_club_team_affiliation
+          , master_program_name
+          , general_terms_of_service
+          , team_id
+          , current_school_attending
+          , invoice_id
+          , program_start_date
+          , sport
+          , program_id
+     ) VALUES (
+            :registrationStatus
+          , :parentEmail
+          , :registrationStartDate
+          , :groupId
+          , :paymentPlanStatus
+          , :masterProgramId
+          , :lastUpdated
+          , :price
+          , :programName
+          , :registrationId
+          , :season
+          , :id
+          , :state
+          , :email
+          , :outstandingBalance
+          , :isStaff
+          , :created
+          , :parentUserId
+          , :waiverAcceptedTimestamp
+          , :firstName
+          , :parentFirstName
+          , :groupName
+          , :userProfileId
+          , :userType
+          , :lastName
+          , :role
+          , :gender
+          , :city
+          , :siteName
+          , :parentPhone
+          , :amountPaid
+          , :registrationEndDate
+          , :programState
+          , :programEndDate
+          , :currentGradeLevel
+          , :lastPaymentDate
+          , :paymentStatus
+          , :paymentPlan
+          , :programType
+          , :parentLastName
+          , :address1
+          , :totalAmountDue
+          , :userName
+          , :userId
+          , :birthDate
+          , :isCoCaptain
+          , :sportId
+          , :phone
+          , :currentClubTeamAffiliation
+          , :masterProgramName
+          , :generalTermsOfService
+          , :teamId
+          , :currentSchoolAttending
+          , :invoiceId
+          , :programStartDate
+          , :sport
+          , :programId
+     )
+>>
+
+update() ::= <<
+     UPDATE t_league_apps_registration
+        SET registration_status = :registrationStatus
+          , parent_email = :parentEmail
+          , registration_start_date = :registrationStartDate
+          , group_id = :groupId
+          , payment_plan_status = :paymentPlanStatus
+          , master_program_id = :masterProgramId
+          , last_updated = :lastUpdated
+          , price = :price
+          , program_name = :programName
+          , registration_id = :registrationId
+          , season = :season
+          , state = :state
+          , email = :email
+          , outstanding_balance = :outstandingBalance
+          , is_staff = :isStaff
+          , created = :created
+          , parent_user_id = :parentUserId
+          , waiver_accepted_timestamp = :waiverAcceptedTimestamp
+          , first_name = :firstName
+          , parent_first_name = :parentFirstName
+          , group_name = :groupName
+          , user_profile_id = :userProfileId
+          , user_type = :userType
+          , last_name = :lastName
+          , role = :role
+          , gender = :gender
+          , city = :city
+          , site_name = :siteName
+          , parent_phone = :parentPhone
+          , amount_paid = :amountPaid
+          , registration_end_date = :registrationEndDate
+          , program_state = :programState
+          , program_end_date = :programEndDate
+          , current_grade_level = :currentGradeLevel
+          , last_payment_date = :lastPaymentDate
+          , payment_status = :paymentStatus
+          , payment_plan = :paymentPlan
+          , program_type = :programType
+          , parent_last_name = :parentLastName
+          , address_1 = :address1
+          , total_amount_due = :totalAmountDue
+          , user_name = :userName
+          , user_id = :userId
+          , birth_date = :birthDate
+          , is_co_captain = :isCoCaptain
+          , sport_id = :sportId
+          , phone = :phone
+          , current_club_team_affiliation = :currentClubTeamAffiliation
+          , master_program_name = :masterProgramName
+          , general_terms_of_service = :generalTermsOfService
+          , team_id = :teamId
+          , current_school_attending = :currentSchoolAttending
+          , invoice_id = :invoiceId
+          , program_start_date = :programStartDate
+          , sport = :sport
+          , program_id = :programId
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_league_apps_registration WHERE id = :id
+>>

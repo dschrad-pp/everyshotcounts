@@ -1,0 +1,65 @@
+group ChallengeInvitationBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , challenge_id
+          , invite_user_id
+          , token_id
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_challenge_invitation
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_challenge_invitation
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_challenge_invitation (
+            id
+          , challenge_id
+          , invite_user_id
+          , token_id
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :challengeId
+          , :inviteUserId
+          , :tokenId
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_challenge_invitation
+        SET challenge_id = :challengeId
+          , invite_user_id = :inviteUserId
+          , token_id = :tokenId
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_challenge_invitation WHERE id = :id
+>>

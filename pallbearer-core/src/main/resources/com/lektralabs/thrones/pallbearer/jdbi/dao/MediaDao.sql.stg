@@ -1,0 +1,32 @@
+group MediaDao;
+
+comment() ::= <<
+<! // This file is meant to be customized. !>
+>>
+
+updateMediaStatus() ::= <<
+     UPDATE t_media
+        SET status_code = :mediaStatusCode
+      WHERE id = :mediaId
+>>
+
+findAllWithGoogleDriveContentUrls() ::= <<
+    SELECT
+        m.id                            AS "id",
+        m.content_url                   AS "contentUrl"
+    FROM
+        t_media m
+    WHERE
+        m.content_url IS NOT NULL
+        AND LENGTH(TRIM(m.content_url)) > 0
+        AND m.content_url LIKE '%drive.google.com%'
+        AND m.content_url NOT LIKE '/%'  -- Exclude local paths
+>>
+
+updateContentUrl() ::= <<
+    UPDATE t_media
+       SET content_url = :contentUrl
+         , modification_date = :modificationDate
+         , version = version + 1
+     WHERE id = :mediaId
+>>

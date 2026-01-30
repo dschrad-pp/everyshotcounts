@@ -1,0 +1,50 @@
+group ChallengeTokenBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , challenge_id
+          , user_id
+          , token_status_code
+          , token_type_code
+       FROM t_challenge_token
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_challenge_token
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_challenge_token (
+            id
+          , challenge_id
+          , user_id
+          , token_status_code
+          , token_type_code
+     ) VALUES (
+            :id
+          , :challengeId
+          , :userId
+          , :tokenStatusCode
+          , :tokenTypeCode
+     )
+>>
+
+update() ::= <<
+     UPDATE t_challenge_token
+        SET challenge_id = :challengeId
+          , user_id = :userId
+          , token_status_code = :tokenStatusCode
+          , token_type_code = :tokenTypeCode
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_challenge_token WHERE id = :id
+>>

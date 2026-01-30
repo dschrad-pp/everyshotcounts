@@ -1,0 +1,51 @@
+-- DELETE FROM t_sport_challenge_type WHERE id = '379a5556-9fcc-43b1-971c-494895747c50';
+
+-- INSERT INTO t_sport_challenge_type (
+--   "id",
+--   created_by_id,
+--   creation_date,
+--   description,
+--   modification_date,
+--   modified_by_id,
+--   "name",
+--   sport_challenge_code,
+--   sport_id,
+--   "version"
+-- ) VALUES (
+--   '379a5556-9fcc-43b1-971c-494895747c50',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   1654462863667,
+--   'Free Throw Shooting',
+--   1654462863667,
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'Free Throw',
+--   'FREE_THROW',
+--   'e75b593b-0af6-4c80-b709-38760c578db6',
+--   0
+-- );
+
+-- DELETE FROM t_sport_challenge_type WHERE id = '4c240039-d8cf-4c46-b6b3-d4c1debc7b91';
+
+-- INSERT INTO t_sport_challenge_type (
+--   "id",
+--   created_by_id,
+--   creation_date,
+--   description,
+--   modification_date,
+--   modified_by_id,
+--   "name",
+--   sport_challenge_code,
+--   sport_id,
+--   "version"
+-- ) values (
+--   '4c240039-d8cf-4c46-b6b3-d4c1debc7b91',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   1654462863667,
+--   '3 Point Shooting',
+--   1654462863667,
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   '3 Point',
+--   'THREE_POINT_SHOOTING',
+--   'e75b593b-0af6-4c80-b709-38760c578db6',
+--   0
+-- );

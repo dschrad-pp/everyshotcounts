@@ -1,0 +1,2 @@
+-- DELETE FROM t_role WHERE id = ('840d3e48-340d-45a0-85ca-4ddf01dc0877');
+-- INSERT INTO t_role (id, "name", description, status_code, creation_date, modification_date, created_by_id, modified_by_id, "version") VALUES ('840d3e48-340d-45a0-85ca-4ddf01dc0877', 'COACH', 'COACH', 'ACTIVE'::character varying, (date_part('epoch'::text, now()) * 1000::double precision), (date_part('epoch'::text, now()) * 1000::double precision), 'd79ab826-65de-4fda-8b5f-779dacfe00fe', 'd79ab826-65de-4fda-8b5f-779dacfe00fe', 0);

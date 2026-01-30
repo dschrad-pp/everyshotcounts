@@ -1,0 +1,32 @@
+group LeagueAppsMemberDao;
+
+comment() ::= <<
+<! // This file is meant to be customized. !>
+>>
+
+selectByUsername() ::= <<
+     SELECT last_login
+          , zip_code
+          , gender
+          , city
+          , address_1
+          , date_joined
+          , group_id
+          , type
+          , user_id
+          , birth_date
+          , first_name
+          , last_updated
+          , group_name
+          , deleted
+          , mobile_phone
+          , newsletter_opt_in
+          , org_account_role
+          , user_profile_id
+          , id
+          , state
+          , email
+          , username
+       FROM t_league_apps_member
+      WHERE username = :username
+>>

@@ -1,0 +1,193 @@
+-- --
+-- -- Creates some initial challenges for the Shawn user,
+--  -- to test, among other things, list view display
+
+-- -- 2 Minute Free Throw
+-- INSERT INTO t_challenge (
+--   "id",
+--   allow_open_invite_code,
+--   allow_retry_code,
+--   challenge_type_code,
+--   challenge_visibility_code,
+--   created_by_id,
+--   creation_date,
+--   description,
+--   end_time,
+--   modification_date,
+--   modified_by_id,
+--   "name",
+--   retry_max,
+--   sport_challenge_type_id,
+--   start_time,
+--   time_limit_ms,
+--   "version"
+-- ) VALUES (
+--   '40cfd251-e5cd-478e-8a0d-97a340fdbd2e',
+--   'CLOSED',
+--   'DISABLED',
+--   'CHALLENGE',
+--   'PRIVATE',
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e',
+--   1662053756907, -- Sep 1, 2022
+--   'Make as many free throws as you can in 2 minutes',
+--   1662361200000,
+--   1662053756907, -- Sep 1, 2022
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e',
+--   '2 Minute Free Throw Challenge',
+--   0,
+--   '379a5556-9fcc-43b1-971c-494895747c50',
+--   1662053756907, -- Sep 1, 2022
+--   120000,
+--   0
+-- );
+
+-- INSERT INTO t_challenge_participant (
+--   "id",
+--   challenge_id,
+--   participant_user_id,
+--   participant_role_code
+-- ) VALUES (
+--   'a9b567f8-0b41-4392-bf73-8a2f61bebf69',
+--   '40cfd251-e5cd-478e-8a0d-97a340fdbd2e',
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e', -- shawn
+--   'COMPETITOR'
+-- );
+
+-- INSERT INTO t_challenge_participant (
+--   "id",
+--   challenge_id,
+--   participant_user_id,
+--   participant_role_code
+-- ) VALUES (
+--   'aeb53ed9-0713-4ae1-90c5-c91ac7add254',
+--   '40cfd251-e5cd-478e-8a0d-97a340fdbd2e',
+--   'ee6dae94-5c21-4aaf-888f-e2fb4de7fcec', -- ken
+--   'COMPETITOR'
+-- );
+
+-- -- 3 Minute 3 Point
+-- INSERT INTO t_challenge (
+--   "id",
+--   allow_open_invite_code,
+--   allow_retry_code,
+--   challenge_type_code,
+--   challenge_visibility_code,
+--   created_by_id,
+--   creation_date,
+--   description,
+--   end_time,
+--   modification_date,
+--   modified_by_id,
+--   "name",
+--   retry_max,
+--   sport_challenge_type_id,
+--   start_time,
+--   time_limit_ms,
+--   "version"
+-- ) VALUES (
+--   'abfb124f-2755-477b-9d9d-916d0aa087d8',
+--   'CLOSED',
+--   'DISABLED',
+--   'CHALLENGE',
+--   'PRIVATE',
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e',
+--   1662426902627, -- Sep 5
+--   'Make as many 3 pointers as you can in 3 minutes',
+--   1662620400000,
+--   1662426902627, -- Sep 5
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e',
+--   '3 Minute 3 Point Challege',
+--   0,
+--   '379a5556-9fcc-43b1-971c-494895747c50',
+--   1662426902627, -- Sep 5
+--   180000,
+--   0
+-- );
+
+-- INSERT INTO t_challenge_participant (
+--   "id",
+--   challenge_id,
+--   participant_user_id,
+--   participant_role_code
+-- ) VALUES (
+--   'd3b086d2-2e4b-4e99-a2fb-64eb505ca99b',
+--   'abfb124f-2755-477b-9d9d-916d0aa087d8',
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e', -- shawn
+--   'COMPETITOR'
+-- );
+
+-- INSERT INTO t_challenge_participant (
+--   "id",
+--   challenge_id,
+--   participant_user_id,
+--   participant_role_code
+-- ) VALUES (
+--   '6cfa833b-a084-4a2a-a385-1babeb24f2f8',
+--   'abfb124f-2755-477b-9d9d-916d0aa087d8',
+--   'ee6dae94-5c21-4aaf-888f-e2fb4de7fcec', -- ken
+--   'COMPETITOR'
+-- );
+
+-- -- 2 Minute Reverse Free Throw
+-- INSERT INTO t_challenge (
+--   "id",
+--   allow_open_invite_code,
+--   allow_retry_code,
+--   challenge_type_code,
+--   challenge_visibility_code,
+--   created_by_id,
+--   creation_date,
+--   description,
+--   end_time,
+--   modification_date,
+--   modified_by_id,
+--   "name",
+--   retry_max,
+--   sport_challenge_type_id,
+--   start_time,
+--   time_limit_ms,
+--   "version"
+-- ) VALUES (
+--   'a5e7d6bd-980c-4174-921f-d1a363816c46',
+--   'CLOSED',
+--   'DISABLED',
+--   'CHALLENGE',
+--   'PRIVATE',
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e',
+--   1663301238557, -- Sep 15
+--   'Facing away from the basket make as many free throws as you can in 2 minutes',
+--   1663657200000,
+--   1663301238557, -- Sep 15
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e',
+--   '2 Minute Reverse Free Throw',
+--   0,
+--   '379a5556-9fcc-43b1-971c-494895747c50',
+--   1663301238557, -- Sep 15
+--   120000,
+--   0
+-- );
+
+-- INSERT INTO t_challenge_participant (
+--   "id",
+--   challenge_id,
+--   participant_user_id,
+--   participant_role_code
+-- ) VALUES (
+--   'ed5cdb2c-2e67-4f69-8f0d-840baecde225',
+--   'a5e7d6bd-980c-4174-921f-d1a363816c46',
+--   '7a188174-a75b-495a-8d60-fa4f7b63ed5e', -- shawn
+--   'COMPETITOR'
+-- );
+
+-- INSERT INTO t_challenge_participant (
+--   "id",
+--   challenge_id,
+--   participant_user_id,
+--   participant_role_code
+-- ) VALUES (
+--   'cbaae416-47f1-4287-95b8-1c5710f19ea8',
+--   'a5e7d6bd-980c-4174-921f-d1a363816c46',
+--   'ee6dae94-5c21-4aaf-888f-e2fb4de7fcec', -- ken
+--   'COMPETITOR'
+-- );
+

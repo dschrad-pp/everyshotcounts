@@ -1,0 +1,42 @@
+group SportBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , name
+          , sport_code
+       FROM t_sport
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_sport
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_sport (
+            id
+          , name
+          , sport_code
+     ) VALUES (
+            :id
+          , :name
+          , :sportCode
+     )
+>>
+
+update() ::= <<
+     UPDATE t_sport
+        SET name = :name
+          , sport_code = :sportCode
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_sport WHERE id = :id
+>>

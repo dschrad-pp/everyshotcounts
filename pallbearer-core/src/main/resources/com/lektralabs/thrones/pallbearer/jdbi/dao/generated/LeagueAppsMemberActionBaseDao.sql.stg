@@ -1,0 +1,73 @@
+group LeagueAppsMemberActionBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , member_id
+          , email
+          , username
+          , status_code
+          , action_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_league_apps_member_action
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_league_apps_member_action
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_league_apps_member_action (
+            id
+          , member_id
+          , email
+          , username
+          , status_code
+          , action_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :memberId
+          , :email
+          , :username
+          , :statusCode
+          , :actionCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_league_apps_member_action
+        SET member_id = :memberId
+          , email = :email
+          , username = :username
+          , status_code = :statusCode
+          , action_code = :actionCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_league_apps_member_action WHERE id = :id
+>>

@@ -1,0 +1,81 @@
+group SocialMediaBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , user_id
+          , social_media_type
+          , username
+          , client_key
+          , client_secret
+          , allowed_access
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_social_media
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_social_media
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_social_media (
+            id
+          , user_id
+          , social_media_type
+          , username
+          , client_key
+          , client_secret
+          , allowed_access
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :userId
+          , :socialMediaType
+          , :username
+          , :clientKey
+          , :clientSecret
+          , :allowedAccess
+          , :statusCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_social_media
+        SET user_id = :userId
+          , social_media_type = :socialMediaType
+          , username = :username
+          , client_key = :clientKey
+          , client_secret = :clientSecret
+          , allowed_access = :allowedAccess
+          , status_code = :statusCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_social_media WHERE id = :id
+>>

@@ -1,0 +1,8 @@
+Debug not enabled
+~/Downloads/thrones-development/pallbearer/pallbearer-api ~/Downloads/thrones-development/pallbearer/src/main/scripts
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------< com.lektralabs.thrones.pallbearer:pallbearer-api-project >------
+[INFO] Building pallbearer-api-project 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------

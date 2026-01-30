@@ -1,0 +1,73 @@
+group DrillGroupBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , team_id
+          , name
+          , description
+          , drill_group_order
+          , drill_group_type_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_drill_group
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_drill_group
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_drill_group (
+            id
+          , team_id
+          , name
+          , description
+          , drill_group_order
+          , drill_group_type_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :teamId
+          , :name
+          , :description
+          , :drillGroupOrder
+          , :drillGroupTypeCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_drill_group
+        SET team_id = :teamId
+          , name = :name
+          , description = :description
+          , drill_group_order = :drillGroupOrder
+          , drill_group_type_code = :drillGroupTypeCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_drill_group WHERE id = :id
+>>

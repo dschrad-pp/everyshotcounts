@@ -1,0 +1,13 @@
+<web-app>
+
+    <servlet>
+        <servlet-name>uploadServlet</servlet-name>
+        <servlet-class>com.lektralabs.thrones.pallbearer.servlet.UploadServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>uploadServlet</servlet-name>
+        <url-pattern>/api/upload/tus/*</url-pattern>
+    </servlet-mapping>
+
+</web-app>

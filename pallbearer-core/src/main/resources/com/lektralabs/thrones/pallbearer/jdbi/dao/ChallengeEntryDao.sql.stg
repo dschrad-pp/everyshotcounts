@@ -1,0 +1,97 @@
+group ChallengeEntryDao;
+
+select() ::= <<
+     SELECT id
+          , challenge_id
+          , token_id
+          , media_id
+          , score
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_challenge_entry
+      WHERE id = :id
+>>
+
+selectByChallenge() ::= <<
+     SELECT id
+          , challenge_id
+          , token_id
+          , media_id
+          , score
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_challenge_entry
+      WHERE challenge_id = :challengeId
+      ORDER BY creation_date DESC
+>>
+
+selectByChallengeAndUser() ::= <<
+     SELECT id
+          , challenge_id
+          , token_id
+          , media_id
+          , score
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+       FROM t_challenge_entry
+      WHERE challenge_id = :challengeId
+        AND created_by_id = :userId
+>>
+
+insert() ::= <<
+     INSERT INTO t_challenge_entry (
+            id
+          , challenge_id
+          , token_id
+          , media_id
+          , score
+          , status_code
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+     ) VALUES (
+            :id
+          , :challengeId
+          , :tokenId
+          , :mediaId
+          , :score
+          , :statusCode
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+     )
+>>
+
+update() ::= <<
+     UPDATE t_challenge_entry
+        SET challenge_id = :challengeId
+          , token_id = :tokenId
+          , media_id = :mediaId
+          , score = :score
+          , status_code = :statusCode
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_challenge_entry WHERE id = :id
+>>

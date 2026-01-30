@@ -1,0 +1,126 @@
+-- INSERT INTO t_contact (
+--   id,
+--   contact_type,
+--   first_name,
+--   middle_name,
+--   last_name,
+--   email,
+--   telephone,
+--   birth_date,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   'b189e31a-151c-4372-8ed0-80287b1c6a73',
+--   'USER',
+--   'Aaron',
+--   NULL,
+--   'Fitzgerald',
+--   'aaronfitz1313@gmail.com',
+--   '(515) 555-1234',
+--   0,
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user (
+--   id,
+--   email,
+--   user_alias,
+--   username,
+--   contact_id,
+--   keycloak_id,
+--   status_code,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   '18c01088-4a98-44c3-b19e-580d1e5b6809',
+--   'aaronfitz1313@gmail.com',
+--   'afitzgerald',
+--   'afitzgerald',
+--   'b189e31a-151c-4372-8ed0-80287b1c6a73',
+--   '92343260-5704-4d56-a1a4-aa4539dcc60d',
+--   'ACTIVE',
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user_role_xref (
+--   user_id,
+--   role_id
+-- ) VALUES (
+--   '18c01088-4a98-44c3-b19e-580d1e5b6809',
+--   'a3c2a880-b706-41ca-a9c1-b1aba6d272d3'
+-- );
+-- INSERT INTO t_contact (
+--   id,
+--   contact_type,
+--   first_name,
+--   middle_name,
+--   last_name,
+--   email,
+--   telephone,
+--   birth_date,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   '153ecb3a-4d2e-4dda-b9e3-a255c6b3bcef',
+--   'USER',
+--   'David',
+--   NULL,
+--   'Schrader',
+--   'daschrader1@gmail.com',
+--   '(515) 555-1234',
+--   0,
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user (
+--   id,
+--   email,
+--   user_alias,
+--   username,
+--   contact_id,
+--   keycloak_id,
+--   status_code,
+--   creation_date,
+--   modification_date,
+--   created_by_id,
+--   modified_by_id,
+--   version
+-- ) VALUES (
+--   '9d2adb1c-c1a8-4192-8963-83e7bc6859f5',
+--   'daschrader1@gmail.com',
+--   'dschrader',
+--   'dschrader',
+--   '153ecb3a-4d2e-4dda-b9e3-a255c6b3bcef',
+--   '4cc31525-5de8-478b-8a72-5a9555e2aaa1',
+--   'ACTIVE',
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   (date_part('epoch'::text, now()) * 1000::double precision),
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   'd79ab826-65de-4fda-8b5f-779dacfe00fe',
+--   0
+-- );
+-- INSERT INTO t_user_role_xref (
+--   user_id,
+--   role_id
+-- ) VALUES (
+--   '9d2adb1c-c1a8-4192-8963-83e7bc6859f5',
+--   'f05b85ea-303e-407b-b342-c2478a91a52d'
+-- );

@@ -1,0 +1,9 @@
+-- INSERT INTO t_sport (
+--   id,
+--   name,
+--   sport_code
+-- ) VALUES (
+--   'e75b593b-0af6-4c80-b709-38760c578db6',
+--   'Basketball',
+--   'BASKETBALL'
+-- );

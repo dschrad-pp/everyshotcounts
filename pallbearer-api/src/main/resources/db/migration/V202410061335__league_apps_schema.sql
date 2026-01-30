@@ -1,0 +1,129 @@
+-- DROP TABLE IF EXISTS t_league_apps_registration;
+
+-- -- for registration-2 endpoint
+-- CREATE TABLE t_league_apps_registration (
+--     zip_code                      TEXT,
+--     registration_status           TEXT,
+--     parent_email                  TEXT,
+--     registration_start_date       BIGINT,
+--     group_id                      BIGINT,
+--     payment_plan_status           TEXT,
+--     master_program_id             BIGINT,
+--     last_updated                  BIGINT,
+--     price                         BIGINT,
+--     program_name                  TEXT,
+--     registration_id               BIGINT NOT NULL CONSTRAINT t_league_apps_registration__registration_id__unique UNIQUE,
+--     season                        TEXT,
+--     id                            BIGINT NOT NULL,
+--     state                         TEXT,
+--     email                         TEXT,
+--     outstanding_balance           BIGINT,
+--     is_staff                      BIGINT,
+--     created                       BIGINT,
+--     parent_user_id                BIGINT,
+--     waiver_accepted_timestamp     BIGINT,
+--     first_name                    TEXT,
+--     parent_first_name             TEXT,
+--     group_name                    TEXT,
+--     user_profile_id               BIGINT,
+--     user_type                     TEXT,
+--     last_name                     TEXT,
+--     role                          TEXT,
+--     gender                        TEXT,
+--     city                          TEXT,
+--     site_name                     TEXT,
+--     parent_phone                  TEXT,
+--     amount_paid                   DOUBLE PRECISION,
+--     registration_end_date         BIGINT,
+--     program_state                 TEXT,
+--     program_end_date              BIGINT,
+--     current_grade_level           TEXT,
+--     last_payment_date             BIGINT,
+--     payment_status                TEXT,
+--     payment_plan                  TEXT,
+--     program_type                  TEXT,
+--     parent_last_name              TEXT,
+--     address_1                     TEXT,
+--     total_amount_due              DOUBLE PRECISION,
+--     user_name                     TEXT,
+--     user_id                       BIGINT,
+--     birth_date                    BIGINT,
+--     is_co_captain                 BOOLEAN,
+--     sport_id                      BIGINT,
+--     phone                         TEXT,
+--     current_club_team_affiliation TEXT,
+--     master_program_name           TEXT,
+--     general_terms_of_service      TEXT,
+--     team_id                       BIGINT,
+--     current_school_attending      TEXT,
+--     invoice_id                    BIGINT,
+--     program_start_date            BIGINT,
+--     sport                         TEXT,
+--     program_id                    BIGINT
+-- );
+
+-- DROP TABLE IF EXISTS t_league_apps_member;
+
+-- -- for members-2 endpoint
+-- CREATE TABLE t_league_apps_member (
+--     last_name                     TEXT,
+--     last_login                    BIGINT,
+--     zip_code                      TEXT,
+--     gender                        TEXT,
+--     city                          TEXT,
+--     address_1                     TEXT,
+--     date_joined                   BIGINT,
+--     group_id                      BIGINT,
+--     type                          TEXT,
+--     user_id                       BIGINT,
+--     birth_date                    BIGINT,
+--     first_name                    TEXT,
+--     last_updated                  BIGINT,
+--     group_name                    TEXT,
+--     deleted                       BOOLEAN,
+--     mobile_phone                  TEXT,
+--     newsletter_opt_in             BOOLEAN,
+--     org_account_role              TEXT,
+--     user_profile_id               BIGINT,
+--     id                            BIGINT NOT NULL,
+--     state                         TEXT,
+--     email                         TEXT,
+--     username                      TEXT NOT NULL CONSTRAINT t_league_apps_member__username__unique UNIQUE
+-- );
+
+-- DROP TABLE IF EXISTS t_esc_league_apps_member_action;
+
+-- -- for members-2 decision table
+-- CREATE TABLE t_esc_league_apps_member_action (
+--     id                            UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+--     member_id                     BIGINT,
+--     registration_id               BIGINT,
+--     user_id                       BIGINT,
+--     username_la                   TEXT NOT NULL CONSTRAINT t_esc_league_apps_member_action__username_la__unique UNIQUE,
+--     username_esc                  TEXT NOT NULL CONSTRAINT t_esc_league_apps_member_action__username_esc__unique UNIQUE,
+--     email                         TEXT,
+--     mobile_phone                  TEXT,
+--     first_name                    TEXT,
+--     last_name                     TEXT,
+--     birth_date                    BIGINT,
+--     registration_status           TEXT,
+--     payment_status                TEXT,
+--     status_code                   VARCHAR(40) DEFAULT 'ACTIVE' NOT NULL, -- ACTIVE, DISABLED
+--     action_code                   VARCHAR(40) DEFAULT 'UNREGISTERED' NOT NULL, -- UNREGISTERED, REGISTERED, UNKNOWN
+--     creation_date                 BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000),
+--     modification_date             BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000),
+--     created_by_id                 UUID NOT NULL DEFAULT 'd79ab826-65de-4fda-8b5f-779dacfe00fe'::UUID,
+--     modified_by_id                UUID NOT NULL DEFAULT 'd79ab826-65de-4fda-8b5f-779dacfe00fe'::UUID,
+--     version                       INTEGER NOT NULL DEFAULT 0
+-- );
+
+-- DROP TABLE IF EXISTS t_system_properties;
+
+-- -- these represent system wide variable we wish to store
+-- CREATE TABLE t_system_properties (
+--     id                 UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+--     property_key       VARCHAR(1024) NOT NULL,
+--     property_value     TEXT NOT NULL
+-- );
+
+-- -- INSERT INTO t_system_properties(id, property_key, property_value) VALUES ('4534b82c-cced-4be2-b63a-85e061ed0aa9', 'league_apps.records.last_updated', '1727807311000');

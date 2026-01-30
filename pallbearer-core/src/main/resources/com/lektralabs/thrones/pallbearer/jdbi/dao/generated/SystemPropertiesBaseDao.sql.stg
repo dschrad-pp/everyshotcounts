@@ -1,0 +1,42 @@
+group SystemPropertiesBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , property_key
+          , property_value
+       FROM t_system_properties
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_system_properties
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_system_properties (
+            id
+          , property_key
+          , property_value
+     ) VALUES (
+            :id
+          , :propertyKey
+          , :propertyValue
+     )
+>>
+
+update() ::= <<
+     UPDATE t_system_properties
+        SET property_key = :propertyKey
+          , property_value = :propertyValue
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_system_properties WHERE id = :id
+>>

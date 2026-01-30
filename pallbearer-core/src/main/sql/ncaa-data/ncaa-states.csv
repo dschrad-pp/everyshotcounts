@@ -1,0 +1,52 @@
+id,name,alias,ncaa_participant
+d7d5a8b8-e240-4437-a7e7-1a5222d51f39,Alabama,AL,true
+a24489bb-c910-4b14-80cc-daaa11663ba6,Alaska,AK,true
+2ed1e468-30a0-47a0-9251-25f790ba4272,Arizona,AZ,true
+a9531622-544b-4547-8e10-ec32c54e10c2,Arkansas,AR,true
+eefa3713-cd5b-4c67-9a0b-215363597cbe,California,CA,true
+7485bd9b-bb45-4e9d-bf3c-311a0979c385,Colorado,CO,true
+fbe390b7-858c-43fd-ab5a-5637806a290d,Connecticut,CT,true
+f6e66d30-2f74-4e22-9482-51a0a3f19c0e,Delaware,DE,true
+93be38f8-3eb3-4d26-968f-5d85273654a3,District of Columbia,DC,true
+fe4be2cb-067e-43e1-898f-7a5e62e08120,Florida,FL,true
+30463ec7-a1a0-4660-ace8-d4207478ffde,Georgia,GA,true
+74d91e61-5a1b-42ee-97f7-313dd9d38a7f,Hawaii,HI,true
+33d62b7d-74f3-4384-b68e-e8fd166b2ac9,Idaho,ID,true
+f2dfd3d3-e211-4799-ba87-c87adca6576d,Illinois,IL,true
+cf0bdeb7-eaba-435a-91ca-49d29142a2da,Indiana,IN,true
+c574bebc-b922-480e-9b79-c2f4cc11810b,Iowa,IA,true
+9a56f5d9-858c-410e-82f0-0193e32977ea,Kansas,KS,true
+9d5a4d91-2f2a-4589-a92d-14671be32ec0,Kentucky,KY,true
+807de42b-35e3-4a0e-b70e-9bcce3bc4817,Louisiana,LA,true
+ca976401-5119-4ed1-9242-e47f21c88d37,Maine,ME,false
+a1e9be9d-1bc9-4bcb-850b-2310d0b1bbf4,Maryland,MD,true
+f31cde04-ade1-438c-bb47-2dd933e11915,Massachusetts,MA,true
+4574c0a1-77dc-477f-b9e6-7f182ccd7d8f,Michigan,MI,true
+16d079b8-c5a2-400c-86d1-7232d18ba8ae,Minnesota,MN,true
+2fad97d2-43aa-4b97-8127-4db186945625,Mississippi,MS,true
+b0532331-2720-47d6-8fdd-04e666c88ab9,Missouri,MO,true
+39ba2836-1828-41e9-8043-a9e627ef5a84,Montana,MT,true
+e85b2cc6-3d8e-4f51-9c5f-ce633dbc0d65,Nebraska,NE,true
+5c5fe56a-185a-4d6a-a842-8c6dd9a81959,Nevada,NV,true
+54bb45e0-55ac-48b6-b504-d5401eea381e,New Hampshire,NH,true
+3f5da9ea-0ad6-43d9-9e88-a1d5dff24f4a,New Jersey,NJ,true
+fa8f4aa9-3989-4b5f-a3f5-95ab5832651d,New Mexico,NM,true
+85c4ef04-8400-4d0e-8d8f-d2721012e0fe,New York,NY,true
+c873f435-2f50-4b69-a542-a7194e7dd54c,North Carolina,NC,true
+01add25d-83a3-4998-9597-fa9f26327d5a,North Dakota,ND,true
+59a7e360-82fb-4618-b947-ddd9198916d2,Ohio,OH,true
+db5a71c6-f255-4c27-8088-539dfffb4c62,Oklahoma,OK,true
+2af242aa-eb38-431d-bfd8-6baeebb242a8,Oregon,OR,true
+ef733607-d02a-4324-b81e-ed354310e9f6,Pennsylvania,PA,true
+87198080-eb69-44fc-a6a0-efc629d1347f,Rhode Island,RI,true
+a976f6bc-0f01-41bd-96d5-c0cc88fc68b2,South Carolina,SC,true
+bc08bf51-7b21-4a8a-826a-428aa13c7930,South Dakota,SD,true
+c3afe7de-d7c8-44cb-acc2-7b143bd55b92,Tennessee,TN,true
+01691f94-1bd5-4e13-bedb-043ce8f08c25,Texas,TX,true
+abe4b032-a07f-4e83-b96d-82c89f59eaed,Utah,UT,true
+41b08712-0ee8-4c6a-8037-31cc4a30ddf5,Vermont,VT,true
+05e80b6d-e529-4342-9761-bb17d5fff3a6,Virginia,VA,true
+6e9434c9-c6a2-4c2c-b1cc-c9d78609822b,Washington,WA,true
+ef5b6fd0-eddc-4952-aa47-ed3698f1b9dc,West Virginia,WV,true
+d6359ef2-95d4-4b47-93a6-82cf70ff73e4,Wisconsin,WI,true
+795171cc-ec70-4d4d-b97b-874ec0622012,Wyoming,WY,true

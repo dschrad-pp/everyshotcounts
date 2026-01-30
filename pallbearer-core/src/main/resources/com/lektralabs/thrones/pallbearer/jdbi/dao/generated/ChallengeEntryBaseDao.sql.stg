@@ -1,0 +1,73 @@
+group ChallengeEntryBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , challenge_id
+          , token_id
+          , media_id
+          , score
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+          , status_code
+       FROM t_challenge_entry
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_challenge_entry
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_challenge_entry (
+            id
+          , challenge_id
+          , token_id
+          , media_id
+          , score
+          , creation_date
+          , modification_date
+          , created_by_id
+          , modified_by_id
+          , version
+          , status_code
+     ) VALUES (
+            :id
+          , :challengeId
+          , :tokenId
+          , :mediaId
+          , :score
+          , :creationDate
+          , :modificationDate
+          , :createdById
+          , :modifiedById
+          , :version
+          , :statusCode
+     )
+>>
+
+update() ::= <<
+     UPDATE t_challenge_entry
+        SET challenge_id = :challengeId
+          , token_id = :tokenId
+          , media_id = :mediaId
+          , score = :score
+          , modification_date = :modificationDate
+          , modified_by_id = :modifiedById
+          , version = :version + 1
+          , status_code = :statusCode
+      WHERE id = :id
+        AND version = :version
+>>
+
+delete() ::= <<
+      DELETE FROM t_challenge_entry WHERE id = :id
+>>

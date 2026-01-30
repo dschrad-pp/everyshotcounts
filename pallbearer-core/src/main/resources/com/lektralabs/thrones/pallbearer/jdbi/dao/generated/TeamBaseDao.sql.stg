@@ -1,0 +1,62 @@
+group TeamBaseDao;
+
+comment() ::= <<
+<! // This is generated code. Do not modify - it will be overwritten. See the non-base version. !>
+>>
+
+select() ::= <<
+     SELECT id
+          , sport_id
+          , organization_id
+          , name
+          , description
+       FROM t_team
+      WHERE id = :id
+>>
+
+selectAll(findOptions) ::= <<
+     SELECT *
+       FROM t_team
+     <findOptions>
+>>
+
+insert() ::= <<
+     INSERT INTO t_team (
+            id
+          , sport_id
+          , organization_id
+          , name
+          , description
+     ) VALUES (
+            :id
+          , :sportId
+          , :organizationId
+          , :name
+          , :description
+     )
+>>
+
+update() ::= <<
+     UPDATE t_team
+        SET sport_id = :sportId
+          , organization_id = :organizationId
+          , name = :name
+          , description = :description
+      WHERE id = :id
+>>
+
+delete() ::= <<
+      DELETE FROM t_team WHERE id = :id
+>>
+
+insertUserTeamMapping() ::= <<
+    INSERT INTO t_team_user_xref (
+        team_id,
+        user_id,
+        verification_code
+    ) VALUES (
+        :teamId,
+        :userId,
+        'UNVERIFIED'
+    )
+>>

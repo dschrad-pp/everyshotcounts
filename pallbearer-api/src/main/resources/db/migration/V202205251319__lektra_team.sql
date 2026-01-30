@@ -1,0 +1,13 @@
+-- INSERT INTO t_team (
+--   id,
+--   sport_id,
+--   organization_id,
+--   name,
+--   description
+-- ) VALUES (
+--   '08616817-5cc4-4f70-b248-48a707078f0f',
+--   'e75b593b-0af6-4c80-b709-38760c578db6',
+--   'a12195dc-c9aa-4a18-98e9-8c747d8213d0',
+--   'LEKTRA_LABS',
+--   'Lektra Labs'
+-- );
