@@ -1,5 +1,0 @@
-group SportChallengeTypeDao;
-
-comment() ::= <<
-<! // This file is meant to be customized. !>
->>

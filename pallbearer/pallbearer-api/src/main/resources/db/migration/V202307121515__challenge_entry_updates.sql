@@ -1,2 +1,0 @@
--- ALTER TABLE t_challenge_entry
---     ADD COLUMN status_code VARCHAR(40) NOT NULL DEFAULT 'PENDING';

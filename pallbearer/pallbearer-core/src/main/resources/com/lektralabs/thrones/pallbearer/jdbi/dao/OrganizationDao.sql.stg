@@ -1,5 +1,0 @@
-group OrganizationDao;
-
-comment() ::= <<
-<! // This file is meant to be customized. !>
->>

@@ -1,5 +1,0 @@
-group LikeDao;
-
-comment() ::= <<
-<! // This file is meant to be customized. !>
->>

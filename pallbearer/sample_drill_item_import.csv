@@ -1,7 +1,0 @@
-drill_group_id,name,description,media_id,media_thumbnail,level_index,drill_item_order,order_index,passing_score,visibility_code,allow_retry_code,retry_max,time_limit_ms,level_test,team_id,shots_max
-4f60b437-18d4-44b4-a975-574eea5acc88,15 ft away catch and shoot/or spin to yourself,15 ft away catch and shoot/or spin to yourself drill exercise,https://example.com/media/video1.mp4,,1,1,1,12,PROTECTED,ACTIVE,9999,180000,false,fc793899-489c-4bd9-bf80-616e1318e714,20
-4f60b437-18d4-44b4-a975-574eea5acc88,15 ft away one-dribble pull up to your right,15 ft away one-dribble pull up to your right drill exercise,media-reference-123,,1,2,1,12,PROTECTED,ACTIVE,9999,180000,false,fc793899-489c-4bd9-bf80-616e1318e714,20
-4f60b437-18d4-44b4-a975-574eea5acc88,15 ft away one-dribble pull up to your left,15 ft away one-dribble pull up to your left drill exercise,550e8400-e29b-41d4-a716-446655440000,,1,3,1,12,PROTECTED,ACTIVE,9999,180000,false,fc793899-489c-4bd9-bf80-616e1318e714,20
-4f60b437-18d4-44b4-a975-574eea5acc88,Free throw routine,Free throw routine drill exercise,,,1,4,1,12,PROTECTED,ACTIVE,9999,180000,false,fc793899-489c-4bd9-bf80-616e1318e714,20
-4f60b437-18d4-44b4-a975-574eea5acc88,3pt distance catch and shoot/or spin to yourself,3pt distance catch and shoot/or spin to yourself drill exercise,,,1,5,1,10,PROTECTED,ACTIVE,9999,180000,false,fc793899-489c-4bd9-bf80-616e1318e714,20
-

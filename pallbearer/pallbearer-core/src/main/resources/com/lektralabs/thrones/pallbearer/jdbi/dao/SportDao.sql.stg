@@ -1,5 +1,0 @@
-group SportDao;
-
-comment() ::= <<
-<! // This file is meant to be customized. !>
->>

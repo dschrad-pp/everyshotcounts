@@ -1,5 +1,0 @@
-group ChallengeTokenDao;
-
-comment() ::= <<
-<! // This file is meant to be customized. !>
->>

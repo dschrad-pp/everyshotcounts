@@ -1,5 +1,0 @@
-name,description,content_url,status_code,mime_type
-Sample Video 1,Description for sample video 1,https://drive.google.com/file/d/1nxiNvs8JToHaXzTJto4jk8m3-tgKYdno/view?usp=sharing,ACTIVE,video/mp4
-Sample Video 2,Description for sample video 2,https://example.com/media/video2.mp4,ACTIVE,video/mp4
-Sample Image 1,Description for sample image 1,https://example.com/images/image1.jpg,ACTIVE,image/jpeg
-Sample Image 2,Description for sample image 2,https://example.com/images/image2.png,ACTIVE,image/png
