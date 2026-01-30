@@ -114,6 +114,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.envrc
 
 # Quarkus specific
 .quarkus/
