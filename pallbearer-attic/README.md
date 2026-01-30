@@ -1,0 +1,1 @@
+Running QuarkusMain etc no longer works. I dunno why, but it's annoying as hell.
