@@ -121,3 +121,8 @@ node_modules/
 # Media directories (large files)
 media/
 **/media/
+
+# Markdown files - only keep README.md files
+*.md
+!README.md
+!**/README.md
