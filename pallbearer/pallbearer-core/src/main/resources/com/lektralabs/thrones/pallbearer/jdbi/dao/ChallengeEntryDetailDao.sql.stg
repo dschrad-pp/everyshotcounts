@@ -1,0 +1,81 @@
+group ChallengeEntryDetailDao;
+
+selectByChallengeEntryId() ::= <<
+ SELECT ce.id                       AS "ce_challengeEntryId"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.modification_date        AS "ce_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.birth_date               AS "cc_birthDate"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.birth_date               AS "mc_birthDate"
+      , mc.version                  AS "mc_version"
+   FROM t_challenge_entry ce
+   JOIN t_user cu ON cu.id = ce.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = ce.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+  WHERE ce.id = :challengeEntryId
+  ORDER BY ce.creation_date DESC
+>>
+
+selectByChallenge() ::= <<
+ SELECT ce.id                       AS "ce_challengeEntryId"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.modification_date        AS "ce_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.birth_date               AS "cc_birthDate"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.birth_date               AS "mc_birthDate"
+      , mc.version                  AS "mc_version"
+   FROM t_challenge_entry ce
+   JOIN t_user cu ON cu.id = ce.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = ce.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+  WHERE ce.challenge_id = :challengeId
+  ORDER BY ce.creation_date DESC
+>>

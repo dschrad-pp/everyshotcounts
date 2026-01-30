@@ -1,0 +1,1 @@
+-- ALTER TABLE t_user ADD CONSTRAINT t_user__username__unique UNIQUE (username);

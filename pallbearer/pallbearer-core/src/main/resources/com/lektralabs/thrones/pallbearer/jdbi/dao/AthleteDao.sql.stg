@@ -1,0 +1,59 @@
+group AthleteDao;
+
+findByAthleteId() ::= <<
+  SELECT au.id                      AS "au_userId"
+       , au.email                    AS "au_email"
+       , au.user_alias               AS "au_userAlias"
+       , au.username                 AS "au_username"
+       , ac.id                       AS "ac_id"
+       , ac.contact_type             AS "ac_contactType"
+       , ac.first_name               AS "ac_firstName"
+       , ac.last_name                AS "ac_lastName"
+       , ac.email                    AS "ac_email"
+       , ac.birth_date               AS "ac_birthDate"
+       , ac.version                  AS "ac_version"
+   FROM t_user au
+   JOIN t_contact ac ON ac.id = au.contact_id
+  WHERE au.id = :athleteId
+>>
+
+selectAll(findOptions) ::= <<
+  SELECT au.id                       AS "au_userId"
+       , au.email                    AS "au_email"
+       , au.user_alias               AS "au_userAlias"
+       , au.username                 AS "au_username"
+       , ac.id                       AS "ac_id"
+       , ac.contact_type             AS "ac_contactType"
+       , ac.first_name               AS "ac_firstName"
+       , ac.last_name                AS "ac_lastName"
+       , ac.email                    AS "ac_email"
+       , ac.birth_date               AS "ac_birthDate"
+       , ac.version                  AS "ac_version"
+    FROM t_user au
+    JOIN t_contact ac ON ac.id = au.contact_id
+    JOIN t_user_role_xref urx ON urx.user_id = au.id
+    JOIN t_role r ON r.id = urx.role_id
+   WHERE ac.contact_type = 'USER'
+     AND r.name = 'ATHLETE'
+   <findOptions>
+>>
+
+findFeaturedAthletes() ::= <<
+  SELECT au.id                      AS "au_userId"
+       , au.email                    AS "au_email"
+       , au.user_alias               AS "au_userAlias"
+       , au.username                 AS "au_username"
+       , ac.id                       AS "ac_id"
+       , ac.contact_type             AS "ac_contactType"
+       , ac.first_name               AS "ac_firstName"
+       , ac.last_name                AS "ac_lastName"
+       , ac.email                    AS "ac_email"
+       , ac.birth_date               AS "ac_birthDate"
+       , ac.version                  AS "ac_version"
+    FROM t_user au
+    JOIN t_contact ac ON ac.id = au.contact_id
+    JOIN t_user_role_xref urx ON urx.user_id = au.id
+    JOIN t_role r ON r.id = urx.role_id
+   WHERE ac.contact_type = 'USER'
+     AND r.name = 'ATHLETE'
+>>

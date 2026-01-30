@@ -1,0 +1,63 @@
+{
+  "attempts": "5",
+  "frameresults": {
+    "attempt": [
+      {
+        "attempt_framecount": "164",
+        "count": "1",
+        "total_framecount": "1023"
+      },
+      {
+        "attempt_framecount": "305",
+        "count": "2",
+        "total_framecount": "1023"
+      },
+      {
+        "attempt_framecount": "582",
+        "count": "3",
+        "total_framecount": "1023"
+      },
+      {
+        "attempt_framecount": "824",
+        "count": "4",
+        "total_framecount": "1023"
+      },
+      {
+        "attempt_framecount": "1008",
+        "count": "5",
+        "total_framecount": "1023"
+      }
+    ],
+    "error": null,
+    "make": [
+      {
+        "count": "1",
+        "make_framecount": "184",
+        "total_framecount": "1023"
+      },
+      {
+        "count": "2",
+        "make_framecount": "304",
+        "total_framecount": "1023"
+      },
+      {
+        "count": "3",
+        "make_framecount": "581",
+        "total_framecount": "1023"
+      },
+      {
+        "count": "4",
+        "make_framecount": "823",
+        "total_framecount": "1023"
+      },
+      {
+        "count": "5",
+        "make_framecount": "1017",
+        "total_framecount": "1023"
+      }
+    ]
+  },
+  "makes": "5",
+  "message": "Video successfully processed",
+  "processedpath": "http://44.240.159.218:5000/static/outputs/Video-Aaron-1-720x480_sboles_2023-04-19 11:40:48.336277M5A5_.mp4"
+}

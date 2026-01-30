@@ -1,0 +1,5 @@
+group ChallengeEntryVoteDao;
+
+comment() ::= <<
+<! // This file is meant to be customized. !>
+>>

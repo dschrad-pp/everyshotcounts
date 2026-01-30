@@ -1,0 +1,18 @@
+group UserOTPDao;
+
+insert() ::= <<
+    INSERT INTO t_user_otp (otp, email, created_at)
+    VALUES (:otp, :email, :createdAt)
+    RETURNING id
+>>
+
+getByEmail() ::= <<
+    SELECT otp, email, created_at
+    FROM t_user_otp
+    WHERE email = :email
+>>
+
+deleteByEmail() ::= <<
+    DELETE from t_user_otp
+    WHERE email = :email
+>>

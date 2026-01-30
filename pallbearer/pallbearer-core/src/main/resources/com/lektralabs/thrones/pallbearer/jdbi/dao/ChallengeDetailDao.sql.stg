@@ -1,0 +1,342 @@
+group ChallengeDetailDao;
+
+getByChallengeId() ::= <<
+  SELECT c.id                       AS "c_challengeId"
+      , c.name                      AS "c_name"
+      , c.description               AS "c_description"
+      , c.start_time                AS "c_startTime"
+      , c.end_time                  AS "c_endTime"
+      , c.sport_challenge_type_id   AS "c_sportChallengeTypeId"
+      , c.challenge_type_code       AS "c_challengeTypeCode"
+      , c.challenge_visibility_code AS "c_challengeVisibilityCode"
+      , c.allow_retry_code          AS "c_allowRetryCode"
+      , c.retry_max                 AS "c_retryMax"
+      , c.allow_open_invite_code    AS "c_allowOpenInviteCode"
+      , c.time_limit_ms             AS "c_timeLimitMs"
+      , c.cost_of_entry             AS "c_costOfEntry"
+      , c.number_of_shots           AS "c_numberOfShots"
+      , c.personalized_intro        AS "c_personalizedIntro"
+      , c.creation_date             AS "c_creationDate"
+      , c.modification_date         AS "c_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.birth_date               AS "cc_birthDate"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.birth_date               AS "mc_birthDate"
+      , mc.version                  AS "mc_version"
+      , sct.id                      AS "sct_sportChallengeTypeId"
+      , sct.sport_challenge_code    AS "sct_sportChallengeCode"
+      , sct.name                    AS "sct_name"
+      , sct.description             AS "sct_description"
+      , s.id                        AS "s_id"
+      , s.name                      AS "s_name"
+      , s.sport_code                AS "s_sportCode"
+      , ce.id                       AS "ce_id"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.created_by_id            AS "ce_createdById"
+   FROM t_challenge c
+   JOIN t_user cu ON cu.id = c.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = c.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+   JOIN t_sport_challenge_type sct ON sct.id = c.sport_challenge_type_id
+   JOIN t_sport s ON s.id = sct.sport_id
+   LEFT JOIN t_challenge_entry ce on ce.challenge_id = c.id
+        AND ce.created_by_id = :currentUserId
+  WHERE c.id = :challengeId
+>>
+
+getFeaturedAthleteChallenge() ::= <<
+  SELECT c.id                       AS "c_challengeId"
+      , c.name                      AS "c_name"
+      , c.description               AS "c_description"
+      , c.start_time                AS "c_startTime"
+      , c.end_time                  AS "c_endTime"
+      , c.sport_challenge_type_id   AS "c_sportChallengeTypeId"
+      , c.challenge_type_code       AS "c_challengeTypeCode"
+      , c.challenge_visibility_code AS "c_challengeVisibilityCode"
+      , c.allow_retry_code          AS "c_allowRetryCode"
+      , c.retry_max                 AS "c_retryMax"
+      , c.allow_open_invite_code    AS "c_allowOpenInviteCode"
+      , c.time_limit_ms             AS "c_timeLimitMs"
+      , c.cost_of_entry             AS "c_costOfEntry"
+      , c.number_of_shots           AS "c_numberOfShots"
+      , c.personalized_intro        AS "c_personalizedIntro"
+      , c.creation_date             AS "c_creationDate"
+      , c.modification_date         AS "c_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.birth_date               AS "cc_birthDate"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.birth_date               AS "mc_birthDate"
+      , mc.version                  AS "mc_version"
+      , sct.id                      AS "sct_sportChallengeTypeId"
+      , sct.sport_challenge_code    AS "sct_sportChallengeCode"
+      , sct.name                    AS "sct_name"
+      , sct.description             AS "sct_description"
+      , s.id                        AS "s_id"
+      , s.name                      AS "s_name"
+      , s.sport_code                AS "s_sportCode"
+      , ce.id                       AS "ce_id"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.created_by_id            AS "ce_createdById"
+   FROM t_challenge c
+   JOIN t_user cu ON cu.id = c.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = c.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+   JOIN t_sport_challenge_type sct ON sct.id = c.sport_challenge_type_id
+   JOIN t_sport s ON s.id = sct.sport_id
+   JOIN t_challenge_entry ace on ace.challenge_id = c.id
+        AND ace.created_by_id = c.created_by_id
+   LEFT JOIN t_challenge_entry ce on ce.challenge_id = c.id
+        AND ce.created_by_id = :currentUserId
+  WHERE c.created_by_id = :athleteUserId
+    AND ace.status_code = 'ACTIVE'
+  ORDER BY c.creation_date DESC
+  LIMIT 1;
+>>
+
+getFeaturedChallenges() ::= <<
+  SELECT c.id                       AS "c_challengeId"
+      , c.name                      AS "c_name"
+      , c.description               AS "c_description"
+      , c.start_time                AS "c_startTime"
+      , c.end_time                  AS "c_endTime"
+      , c.sport_challenge_type_id   AS "c_sportChallengeTypeId"
+      , c.challenge_type_code       AS "c_challengeTypeCode"
+      , c.challenge_visibility_code AS "c_challengeVisibilityCode"
+      , c.allow_retry_code          AS "c_allowRetryCode"
+      , c.retry_max                 AS "c_retryMax"
+      , c.allow_open_invite_code    AS "c_allowOpenInviteCode"
+      , c.time_limit_ms             AS "c_timeLimitMs"
+      , c.cost_of_entry             AS "c_costOfEntry"
+      , c.number_of_shots           AS "c_numberOfShots"
+      , c.personalized_intro        AS "c_personalizedIntro"
+      , c.creation_date             AS "c_creationDate"
+      , c.modification_date         AS "c_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.version                  AS "mc_version"
+      , sct.id                      AS "sct_sportChallengeTypeId"
+      , sct.sport_challenge_code    AS "sct_sportChallengeCode"
+      , sct.name                    AS "sct_name"
+      , sct.description             AS "sct_description"
+      , s.id                        AS "s_id"
+      , s.name                      AS "s_name"
+      , s.sport_code                AS "s_sportCode"
+      , ce.id                       AS "ce_id"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.created_by_id            AS "ce_createdById"
+   FROM t_challenge c
+   JOIN t_user cu ON cu.id = c.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = c.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+   JOIN t_sport_challenge_type sct ON sct.id = c.sport_challenge_type_id
+   JOIN t_sport s ON s.id = sct.sport_id
+   JOIN t_challenge_entry ace on ace.challenge_id = c.id
+        AND ace.created_by_id = c.created_by_id
+   LEFT JOIN t_challenge_entry ce on ce.challenge_id = c.id
+        AND ce.created_by_id = :currentUserId
+  WHERE ace.status_code = 'ACTIVE'
+  ORDER BY c.creation_date DESC
+  LIMIT 40;
+>>
+
+getAthleteChallengeDetails() ::= <<
+  SELECT c.id                       AS "c_challengeId"
+      , c.name                      AS "c_name"
+      , c.description               AS "c_description"
+      , c.start_time                AS "c_startTime"
+      , c.end_time                  AS "c_endTime"
+      , c.sport_challenge_type_id   AS "c_sportChallengeTypeId"
+      , c.challenge_type_code       AS "c_challengeTypeCode"
+      , c.challenge_visibility_code AS "c_challengeVisibilityCode"
+      , c.allow_retry_code          AS "c_allowRetryCode"
+      , c.retry_max                 AS "c_retryMax"
+      , c.allow_open_invite_code    AS "c_allowOpenInviteCode"
+      , c.time_limit_ms             AS "c_timeLimitMs"
+      , c.cost_of_entry             AS "c_costOfEntry"
+      , c.number_of_shots           AS "c_numberOfShots"
+      , c.personalized_intro        AS "c_personalizedIntro"
+      , c.creation_date             AS "c_creationDate"
+      , c.modification_date         AS "c_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.version                  AS "mc_version"
+      , sct.id                      AS "sct_sportChallengeTypeId"
+      , sct.sport_challenge_code    AS "sct_sportChallengeCode"
+      , sct.name                    AS "sct_name"
+      , sct.description             AS "sct_description"
+      , s.id                        AS "s_id"
+      , s.name                      AS "s_name"
+      , s.sport_code                AS "s_sportCode"
+      , ce.id                       AS "ce_id"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.created_by_id            AS "ce_createdById"
+   FROM t_challenge c
+   JOIN t_user cu ON cu.id = c.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = c.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+   JOIN t_sport_challenge_type sct ON sct.id = c.sport_challenge_type_id
+   JOIN t_sport s ON s.id = sct.sport_id
+   LEFT JOIN t_challenge_entry ce on ce.challenge_id = c.id
+        AND ce.created_by_id = :currentUserId
+  WHERE c.created_by_id = :athleteUserId
+  ORDER BY c.creation_date DESC
+  LIMIT 40;
+>>
+
+getFanChallengeDetails() ::= <<
+  SELECT c.id                       AS "c_challengeId"
+      , c.name                      AS "c_name"
+      , c.description               AS "c_description"
+      , c.start_time                AS "c_startTime"
+      , c.end_time                  AS "c_endTime"
+      , c.sport_challenge_type_id   AS "c_sportChallengeTypeId"
+      , c.challenge_type_code       AS "c_challengeTypeCode"
+      , c.challenge_visibility_code AS "c_challengeVisibilityCode"
+      , c.allow_retry_code          AS "c_allowRetryCode"
+      , c.retry_max                 AS "c_retryMax"
+      , c.allow_open_invite_code    AS "c_allowOpenInviteCode"
+      , c.time_limit_ms             AS "c_timeLimitMs"
+      , c.cost_of_entry             AS "c_costOfEntry"
+      , c.number_of_shots           AS "c_numberOfShots"
+      , c.personalized_intro        AS "c_personalizedIntro"
+      , c.creation_date             AS "c_creationDate"
+      , c.modification_date         AS "c_modificationDate"
+      , cu.id                       AS "cu_userId"
+      , cu.email                    AS "cu_email"
+      , cu.user_alias               AS "cu_userAlias"
+      , cu.username                 AS "cu_username"
+      , cc.id                       AS "cc_id"
+      , cc.contact_type             AS "cc_contactType"
+      , cc.first_name               AS "cc_firstName"
+      , cc.last_name                AS "cc_lastName"
+      , cc.email                    AS "cc_email"
+      , cc.version                  AS "cc_version"
+      , mu.id                       AS "mu_userId"
+      , mu.email                    AS "mu_email"
+      , mu.user_alias               AS "mu_userAlias"
+      , mu.username                 AS "mu_username"
+      , mc.id                       AS "mc_id"
+      , mc.contact_type             AS "mc_contactType"
+      , mc.first_name               AS "mc_firstName"
+      , mc.last_name                AS "mc_lastName"
+      , mc.email                    AS "mc_email"
+      , mc.version                  AS "mc_version"
+      , sct.id                      AS "sct_sportChallengeTypeId"
+      , sct.sport_challenge_code    AS "sct_sportChallengeCode"
+      , sct.name                    AS "sct_name"
+      , sct.description             AS "sct_description"
+      , s.id                        AS "s_id"
+      , s.name                      AS "s_name"
+      , s.sport_code                AS "s_sportCode"
+      , ce.id                       AS "ce_id"
+      , ce.challenge_id             AS "ce_challengeId"
+      , ce.token_id                 AS "ce_tokenId"
+      , ce.media_id                 AS "ce_mediaId"
+      , ce.score                    AS "ce_score"
+      , ce.status_code              AS "ce_statusCode"
+      , ce.creation_date            AS "ce_creationDate"
+      , ce.created_by_id            AS "ce_createdById"
+   FROM t_challenge c
+   JOIN t_user cu ON cu.id = c.created_by_id
+   JOIN t_contact cc ON cc.id = cu.contact_id
+   JOIN t_user mu ON mu.id = c.modified_by_id
+   JOIN t_contact mc ON mc.id = mu.contact_id
+   JOIN t_sport_challenge_type sct ON sct.id = c.sport_challenge_type_id
+   LEFT JOIN t_challenge_entry ce on ce.challenge_id = c.id
+        AND ce.created_by_id = :fanUserId
+  WHERE ce.created_by_id = :fanUserId
+  ORDER BY c.creation_date DESC
+  LIMIT 40;
+>>

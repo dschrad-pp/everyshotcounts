@@ -1,0 +1,31 @@
+group CurrentUserDao;
+
+findById() ::= <<
+     SELECT u.id
+          , u.keycloak_id
+          , (SELECT organization_id FROM t_organization_user_xref WHERE user_id = u.id LIMIT 1) AS organization_id
+          , (SELECT team_id FROM t_organization_user_xref WHERE user_id = u.id LIMIT 1) AS team_id
+          , u.username
+          , u.email
+          , c.first_name
+          , c.last_name
+       FROM t_user u
+       JOIN t_contact c ON c.id = u.contact_id
+      WHERE u.id = :id
+>>
+
+findByName() ::= <<
+     SELECT u.id
+          , u.keycloak_id
+          , (SELECT organization_id FROM t_organization_user_xref WHERE user_id = u.id LIMIT 1) AS organization_id
+          , (SELECT team_id FROM t_organization_user_xref WHERE user_id = u.id LIMIT 1) AS team_id
+          , u.username
+          , u.email
+          , c.first_name
+          , c.last_name
+          , ( SELECT r.name FROM t_role r JOIN t_user_role_xref uxr ON uxr.role_id = r.id WHERE uxr.user_id = u.id LIMIT 1 ) AS "defaultRole"
+          , ( SELECT r.name FROM t_role r JOIN t_user_role_xref uxr ON uxr.role_id = r.id WHERE uxr.user_id = u.id LIMIT 1 ) AS "role"
+       FROM t_user u
+       JOIN t_contact c ON c.id = u.contact_id
+      WHERE lower(u.username) = lower(:username)
+>>

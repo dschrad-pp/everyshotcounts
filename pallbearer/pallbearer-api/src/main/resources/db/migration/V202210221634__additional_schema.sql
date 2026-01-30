@@ -1,0 +1,33 @@
+-- DROP TABLE IF NOT EXISTS t_social_media CASCADE;
+-- CREATE TABLE t_social_media (
+--     id                 UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+--     user_id            UUID NOT NULL REFERENCES t_user(id) DEFERRABLE INITIALLY DEFERRED,
+--     social_media_type  VARCHAR(40), -- FACEBOOK, INSTAGRAM, TWITTER
+--     username           TEXT,
+--     client_key         TEXT,
+--     client_secret      TEXT,
+--     allowed_access     TEXT, -- comma separated values of OAuth access
+--     status_code        VARCHAR(40) DEFAULT 'ACTIVE' NOT NULL, -- ACTIVE, ARCHIVED, DELETED
+--     creation_date      BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000),
+--     modification_date  BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000),
+--     created_by_id      UUID NOT NULL DEFAULT 'd79ab826-65de-4fda-8b5f-779dacfe00fe'::UUID,
+--     modified_by_id     UUID NOT NULL DEFAULT 'd79ab826-65de-4fda-8b5f-779dacfe00fe'::UUID,
+--     version            INTEGER NOT NULL DEFAULT 0
+-- );
+
+-- DROP TABLE IF NOT EXISTS t_financial_account CASCADE;
+-- CREATE TABLE t_financial_account (
+--     id                 UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+--     user_id            UUID NOT NULL REFERENCES t_user(id) DEFERRABLE INITIALLY DEFERRED,
+--     financial_account_type  VARCHAR(40), -- PAYPAL, STRIPE, etc
+--     username           TEXT,
+--     client_key         TEXT,
+--     client_secret      TEXT,
+--     allowed_access     TEXT, -- comma separated values of OAuth access
+--     status_code        VARCHAR(40) DEFAULT 'ACTIVE' NOT NULL, -- ACTIVE, ARCHIVED, DELETED
+--     creation_date      BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000),
+--     modification_date  BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000),
+--     created_by_id      UUID NOT NULL DEFAULT 'd79ab826-65de-4fda-8b5f-779dacfe00fe'::UUID,
+--     modified_by_id     UUID NOT NULL DEFAULT 'd79ab826-65de-4fda-8b5f-779dacfe00fe'::UUID,
+--     version            INTEGER NOT NULL DEFAULT 0
+-- );

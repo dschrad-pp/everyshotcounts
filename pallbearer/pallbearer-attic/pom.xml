@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <parent>
+        <groupId>com.lektralabs.thrones.pallbearer</groupId>
+        <artifactId>pallbearer-reactor-project</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pallbearer-reactor/pom.xml</relativePath>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <name>pallbearer-attic-project</name>
+    <groupId>com.lektralabs.thrones.pallbearer</groupId>
+    <artifactId>pallbearer-attic-project</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <url>https://www.lektralabs.com</url>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.lektralabs.thrones.pallbearer</groupId>
+            <artifactId>pallbearer-core-project</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.lektralabs.thrones.pallbearer</groupId>
+            <artifactId>leagueapps-project</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- IDE-LAUNCHER -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-ide-launcher</artifactId>
+            <version>${quarkus.platform.version}</version>
+        </dependency>
+    </dependencies>
+</project>
