@@ -55,6 +55,22 @@ public class DrillItemService extends DrillItemBaseService {
 
     public Map<String, List<DrillItemDetail>> getAllDrillItemsGroupedByDrillGroup() {
         List<DrillItemDetail> allDrillItems = drillItemDao.findAll();
+        
+        // Convert local mediaThumbnail paths to URLs
+        allDrillItems.forEach(drillItem -> {
+            if (drillItem.getMediaThumbnail().isPresent()) {
+                String thumbnailPath = drillItem.getMediaThumbnail().get();
+                // Check if it's a local file path (starts with /)
+                if (thumbnailPath != null && thumbnailPath.startsWith("/") && !thumbnailPath.startsWith("http")) {
+                    // Convert local path to URL
+                    String thumbnailUrl = convertLocalPathToUrl(thumbnailPath);
+                    logger.debug("Converted local thumbnail path to URL: " + thumbnailPath + " -> " + thumbnailUrl);
+                    drillItem.setMediaThumbnail(Optional.of(thumbnailUrl));
+                }
+                // If it's already a URL (http/https), leave it as is
+            }
+        });
+        
         Map<String, List<DrillItemDetail>> groupedDrills = allDrillItems.stream()
                 .collect(Collectors.groupingBy(
                         drillItem -> Optional.ofNullable(drillItem.getDrillGroup()) // Wrap in Optional
@@ -65,6 +81,92 @@ public class DrillItemService extends DrillItemBaseService {
                 ));
 
         return groupedDrills;
+    }
+    
+    /**
+     * Converts a local file path to a URL that can be accessed via HTTP.
+     * Supports both old format (with /gallery/) and new format (directly under mediaStorePath).
+     * 
+     * Old format: {mediaStorePath}/gallery/{group}/{level}_{drill}/{mediaId}/thumbnail.jpg
+     * New format: {mediaStorePath}/{groupName}/{unique_id}/thumbnail.jpg
+     * 
+     * @param localPath Local file path (e.g., "/home/ankit/Downloads/thrones-development/media/Beginner/beginners_1_1/thumbnail.jpg")
+     * @return URL that can be used to access the file
+     */
+    private String convertLocalPathToUrl(String localPath) {
+        if (localPath == null || localPath.isEmpty()) {
+            return null;
+        }
+        
+        // If it's already a URL (http/https), return as-is
+        if (localPath.startsWith("http://") || localPath.startsWith("https://")) {
+            return localPath;
+        }
+        
+        // Try to extract relative path from the local path
+        String relativePath = null;
+        
+        // Check for new format: {mediaStorePath}/{groupName}/{unique_id}/thumbnail.jpg
+        // This format doesn't have "/gallery/" in it
+        if (localPath.contains("/thumbnail.jpg") && !localPath.contains("/gallery/")) {
+            // Check if path matches new format: ends with /thumbnail.jpg and has structure {group}/{unique_id}/thumbnail.jpg
+            String[] pathParts = localPath.split("/");
+            if (pathParts.length >= 3 && pathParts[pathParts.length - 1].equals("thumbnail.jpg")) {
+                // Find the directories before thumbnail.jpg
+                // Last part is "thumbnail.jpg", second last is {unique_id}, third last is {groupName}
+                String uniqueId = pathParts[pathParts.length - 2];
+                String groupName = pathParts.length >= 3 ? pathParts[pathParts.length - 3] : null;
+                
+                // Check if this looks like the new format (groupName/unique_id/thumbnail.jpg)
+                // Common group names: Beginner, Intermediate, Advanced, Elite (case-insensitive)
+                if (groupName != null) {
+                    String[] knownGroups = {"Beginner", "Intermediate", "Advanced", "Elite", 
+                                           "beginner", "intermediate", "advanced", "elite"};
+                    
+                    for (String group : knownGroups) {
+                        if (groupName.equalsIgnoreCase(group)) {
+                            // Found a group name, extract relative path: {groupName}/{unique_id}/thumbnail.jpg
+                            relativePath = groupName + "/" + uniqueId + "/thumbnail.jpg";
+                            logger.debug("Detected new format path - Group: " + groupName + ", UniqueId: " + uniqueId + ", Relative path: " + relativePath);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If we didn't find new format, try old format with /gallery/
+        if (relativePath == null) {
+            int galleryIndex = localPath.indexOf("/gallery/");
+            if (galleryIndex >= 0) {
+                // Extract relative path starting from "gallery/"
+                relativePath = localPath.substring(galleryIndex + 1); // +1 to skip the leading /
+            }
+        }
+        
+        // If we have a relative path (either new or old format), use query parameter endpoint
+        if (relativePath != null) {
+            try {
+                String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
+                        .replace("+", "%20");
+                String url = String.format("http://103.99.202.227:8000/api/media/gallery/thumbnail?path=%s", encodedPath);
+                logger.debug("Converted local path " + localPath + " to URL: " + url);
+                return url;
+            } catch (Exception e) {
+                logger.warn("Error encoding path: " + relativePath, e);
+                return String.format("http://103.99.202.227:8000/api/media/gallery/thumbnail?path=%s", relativePath);
+            }
+        }
+        
+        // Fallback: if we can't extract relative path, try to use the full path
+        logger.warn("Could not extract relative path from: " + localPath);
+        try {
+            String encodedPath = java.net.URLEncoder.encode(localPath, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            return String.format("http://103.99.202.227:8000/api/media/gallery/thumbnail?path=%s", encodedPath);
+        } catch (Exception e) {
+            return localPath; // Return original path if we can't convert it
+        }
     }
 
     /**

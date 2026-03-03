@@ -125,6 +125,7 @@ public class UserService implements CoreConstants, UserPropertyConstants {
                 .email("system@lektralabs.com")
                 .firstName("System")
                 .lastName("User")
+                .metadata(new HashMap<>())
                 .build();
     }
 
@@ -463,6 +464,17 @@ public class UserService implements CoreConstants, UserPropertyConstants {
 
     public int update(UserRow userRow) {
         return userDao.update(userRow);
+    }
+
+    public int updateMetadata(UUID userId, java.util.Map<String, Object> metadata) {
+        try {
+            String value = metadata != null
+                    ? new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(metadata)
+                    : "{}";
+            return userDao.updateMetadata(userId, value);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize metadata", e);
+        }
     }
 
     public Optional<UserRow> findById(UUID id) {

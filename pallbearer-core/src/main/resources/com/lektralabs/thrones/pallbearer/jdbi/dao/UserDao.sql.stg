@@ -133,6 +133,12 @@ delete() ::= <<
       DELETE FROM t_user WHERE id = :id
 >>
 
+updateMetadata() ::= <<
+     UPDATE t_user
+        SET metadata = :metadata
+      WHERE id = :userId
+>>
+
 selectAllBasic() ::= <<
      SELECT u.id
           , u.email

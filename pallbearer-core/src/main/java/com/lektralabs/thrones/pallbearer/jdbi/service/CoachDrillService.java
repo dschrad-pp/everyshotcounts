@@ -26,6 +26,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.UserGroupPropertyRow;
 
 import com.lektralabs.thrones.pallbearer.jdbi.dao.UserGroupPropertyDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
+import com.lektralabs.thrones.pallbearer.util.PropertyKeyUtils;
 
 @ApplicationScoped
 public class CoachDrillService {
@@ -45,7 +46,7 @@ public class CoachDrillService {
         this.athleteDrillDetailDao = jdbiProvider.getJdbi().onDemand(AthleteDrillDetailDao.class);
         this.coachDao = jdbiProvider.getJdbi().onDemand(CoachDao.class);
         this.userPropertyDao = jdbiProvider.getJdbi().onDemand(UserPropertyDao.class);
-                this.userGroupPropertyDao = jdbiProvider.getJdbi().onDemand(UserGroupPropertyDao.class);
+        this.userGroupPropertyDao = jdbiProvider.getJdbi().onDemand(UserGroupPropertyDao.class);
 
     }
 
@@ -83,25 +84,28 @@ public class CoachDrillService {
         List<UserGroupPropertyRow> userGroupProperties = userGroupPropertyDao.findByUserIds(athleteUserIds);
 
         Map<UUID, List<UserGroupPropertyRow>> userGroupPropertiesMap = userGroupProperties.stream()
-        .collect(Collectors.groupingBy(UserGroupPropertyRow::getUserId));
+                .collect(Collectors.groupingBy(UserGroupPropertyRow::getUserId));
 
         athleteDetails.forEach(athleteDetail -> {
-            List<UserPropertyRow> propertiesForThisAthlete = userPropertiesMap.getOrDefault(athleteDetail.getUserId(), List.of());
-            List<UserGroupPropertyRow> groupPropertiesForThisAthlete = userGroupPropertiesMap.getOrDefault(athleteDetail.getUserId(), List.of());
+            List<UserPropertyRow> propertiesForThisAthlete = userPropertiesMap.getOrDefault(athleteDetail.getUserId(),
+                    List.of());
+            List<UserGroupPropertyRow> groupPropertiesForThisAthlete = userGroupPropertiesMap
+                    .getOrDefault(athleteDetail.getUserId(), List.of());
 
             Map<String, String> propertyMap = propertiesForThisAthlete.stream()
                     .collect(Collectors.toMap(UserPropertyRow::getPropertyKey, UserPropertyRow::getPropertyValue));
+            Map<String, String> camelCaseUserProperties = PropertyKeyUtils.convertKeysToCamelCase(propertyMap);
 
             Map<String, Map<String, String>> groupProperties = new HashMap<>();
-            for(UserGroupPropertyRow row : groupPropertiesForThisAthlete) {
+            for (UserGroupPropertyRow row : groupPropertiesForThisAthlete) {
                 UUID groupId = row.getDrillGroupId();
                 String groupName = DrillGroupConstants.drillGroupIdNameMap.getOrDefault(groupId, groupId.toString());
                 groupProperties
-                .computeIfAbsent(groupName, k -> new HashMap<>())
-                .put(row.getPropertyKey(), row.getPropertyValue());
+                        .computeIfAbsent(groupName, k -> new HashMap<>())
+                        .put(row.getPropertyKey(), row.getPropertyValue());
             }
             athleteDetail.setGroupProperties(groupProperties);
-            athleteDetail.setUserProperties(propertyMap);
+            athleteDetail.setUserProperties(camelCaseUserProperties);
         });
 
         return athleteDetails;

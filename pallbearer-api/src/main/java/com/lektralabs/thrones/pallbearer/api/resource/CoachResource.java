@@ -34,22 +34,21 @@ public class CoachResource {
 
     @GET
     @Path("/{coachId}")
-    @RolesAllowed({"ADMIN", "ATHLETE", "COACH", "FAN", "USER"})
+    @RolesAllowed({ "ADMIN", "ATHLETE", "COACH", "FAN", "USER" })
     @Produces(MediaType.APPLICATION_JSON)
     public Response getCoachById(@PathParam("coachId") UUID coachId) {
         logger.infof("Fetching coach by ID: %s", coachId);
 
         return coachDrillService.findCoachById(coachId)
                 .map(coachPartial -> Response.ok(
-                new GenericApiResponse<>(200, "Successfully fetched coach partial", coachPartial)
-        ).build())
+                        new GenericApiResponse<>(200, "Successfully fetched coach partial", coachPartial)).build())
                 .orElseGet(() -> Response.status(404)
-                .entity(new GenericApiResponse<>(404, "Coach not found", null)).build());
+                        .entity(new GenericApiResponse<>(404, "Coach not found", null)).build());
     }
 
     @GET
     @Path("/{coachId}/athletes")
-    @RolesAllowed({"ADMIN", "COACH"})
+    @RolesAllowed({ "ADMIN", "COACH" })
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAthletesAssignedToCoach(@PathParam("coachId") UUID coachId) {
         logger.infof("Fetching athletes assigned to coach ID: %s", coachId);
@@ -58,25 +57,30 @@ public class CoachResource {
 
         return Response.ok(
                 new GenericApiResponse<>(200,
-                        athletes.isEmpty() ? "No athletes found for this coach" : "Successfully fetched athletes for coach",
-                        athletes)
-        ).build();
+                        athletes.isEmpty() ? "No athletes found for this coach"
+                                : "Successfully fetched athletes for coach",
+                        athletes))
+                .build();
     }
 
     @GET
     @Path("/{coachId}/athlete/{athleteId}/drill_detail")
-    @RolesAllowed({"ADMIN", "COACH"})
+    @RolesAllowed({ "ADMIN", "COACH" })
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getDrillDetailsOfAthleteAssignedToCoach(@PathParam("coachId") UUID coachId, @PathParam("athleteId") UUID athleteId) {
-        logger.infof("Fetching drill details for athletes assigned to coach ID: %s", athleteId);
-        List<AthleteDrillDetail> athleteDrillDetails = athleteDrillService.findLatestAttemptedDrillsForAthleteUnderCoach(coachId, athleteId);
-        logger.info(String.format("the number of drills returned : %s", athleteDrillDetails.size()));
+    public Response getDrillDetailsOfAthleteAssignedToCoach(@PathParam("coachId") UUID coachId,
+            @PathParam("athleteId") UUID athleteId) {
+        // logger.infof("Fetching drill details for athletes assigned to coach ID: %s",
+        // athleteId);
+        List<AthleteDrillDetail> athleteDrillDetails = athleteDrillService
+                .findLatestAttemptedDrillsForAthleteUnderCoach(coachId, athleteId);
+        // logger.info(String.format("the number of drills returned : %s",
+        // athleteDrillDetails.size()));
         return Response.ok(
                 new GenericApiResponse<>(200,
                         athleteDrillDetails.isEmpty() ? "No drill details found for athletes of this coach"
-                        : "Successfully fetched drill details for coach",
-                        athleteDrillDetails)
-        ).build();
+                                : "Successfully fetched drill details for coach",
+                        athleteDrillDetails))
+                .build();
     }
 
 }

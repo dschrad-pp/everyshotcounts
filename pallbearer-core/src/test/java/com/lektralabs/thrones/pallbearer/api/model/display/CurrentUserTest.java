@@ -59,7 +59,7 @@ public class CurrentUserTest {
         CurrentUser currentUser = new CurrentUser(
             userId, keycloakId, null, null, "testuser", 
             "test@example.com", "Test", "User", "ATHLETE", "ATHLETE", 
-            "step_1_6", userProperties, groupProperties,
+            "step_1_6", new HashMap<>(), userProperties, groupProperties,
             new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>()
         );
         

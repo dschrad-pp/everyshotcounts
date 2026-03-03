@@ -59,7 +59,7 @@ public class TusUploadProcessor implements TusUploadUtils {
                 output.toFile().getAbsolutePath(),
                 output.getFileName());
         try {
-            Optional<UUID> result = athleteDrillService.drillSubmission(
+            Optional<com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow> result = athleteDrillService.drillSubmission(
                     drillItemId, userId,
                     output.getFileName().toString(), output.toFile(),
                     0, 0);

@@ -4,6 +4,7 @@ import com.lektralabs.thrones.pallbearer.api.model.display.CurrentUser;
 import com.lektralabs.thrones.pallbearer.api.model.keycloak.OpenIdResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.RegisterUserPartial;
+import com.lektralabs.thrones.pallbearer.api.model.request.ProfileUpdateRequest;
 import com.lektralabs.thrones.pallbearer.datetime.DateTimeUtils;
 import com.lektralabs.thrones.pallbearer.jdbi.exception.RegistrationException;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
@@ -11,6 +12,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 import com.lektralabs.thrones.pallbearer.manager.AthleteDrillGroupManager;
 import com.lektralabs.thrones.pallbearer.security.KeycloakProvider;
 
+import com.lektralabs.thrones.pallbearer.security.CurrentUserUtils;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
@@ -49,6 +51,8 @@ public class UserResource {
     SecurityIdentity keycloakSecurityContext;
     @Inject
     UserService userService;
+    @Inject
+    CurrentUserUtils currentUserUtils;
 
     @GET
     @Path("/current")
@@ -173,6 +177,25 @@ public class UserResource {
             }
             return Response.status(HttpStatus.SC_BAD_REQUEST)
                     .entity(new GenericApiResponse<>(HttpStatus.SC_BAD_REQUEST, errorMessage, e.getMessage()))
+                    .build();
+        }
+    }
+
+    @PUT
+    @Path("/profile")
+    @RolesAllowed({"ADMIN", "ATHLETE", "COACH", "FAN", "USER"})
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response updateProfile(ProfileUpdateRequest request) {
+        try {
+            UUID userId = currentUserUtils.getCurrentUserId();
+            userService.updateMetadata(userId, request.getMetadata());
+            CurrentUser cu = userService.getCurrentUser();
+            return Response.ok(new GenericApiResponse<>(HttpStatus.SC_OK, "Profile updated successfully", cu)).build();
+        } catch (Exception e) {
+            logger.warn("Error in updateProfile", e);
+            return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                    .entity(new GenericApiResponse<>(HttpStatus.SC_INTERNAL_SERVER_ERROR, "Profile update failed", null))
                     .build();
         }
     }

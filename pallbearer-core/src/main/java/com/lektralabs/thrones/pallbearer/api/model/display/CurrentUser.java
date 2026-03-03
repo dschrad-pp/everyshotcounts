@@ -5,7 +5,6 @@ import java.util.HashMap;
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,6 +34,8 @@ public class CurrentUser {
 
     private String registrationStep;
 
+    private Map<String, Object> metadata;
+
     private Map<String, String> userProperties;
 
     private Map<String, Map<String, String>> groupProperties;
@@ -50,7 +51,7 @@ public class CurrentUser {
 
     public CurrentUser(UUID id, UUID keycloakId, UUID organizationId, UUID teamId, String username,
             String email, String firstName, String lastName, String defaultRole, String role,
-            String registrationStep, Map<String, String> userProperties,
+            String registrationStep, Map<String, Object> metadata, Map<String, String> userProperties,
             Map<String, Map<String, String>> groupProperties,
             Map<String, String> beginnerGroupProperties,
             Map<String, String> intermediateGroupProperties,
@@ -67,6 +68,7 @@ public class CurrentUser {
         this.defaultRole = defaultRole;
         this.role = role;
         this.registrationStep = registrationStep;
+        this.metadata = metadata != null ? metadata : new HashMap<>();
         this.userProperties = userProperties != null ? userProperties : new HashMap<>();
         this.groupProperties = groupProperties != null ? groupProperties : new HashMap<>();
         this.beginnerGroupProperties = beginnerGroupProperties != null ? beginnerGroupProperties : new HashMap<>();

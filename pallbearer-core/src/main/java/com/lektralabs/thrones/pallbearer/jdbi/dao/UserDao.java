@@ -3,6 +3,7 @@ package com.lektralabs.thrones.pallbearer.jdbi.dao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindBean;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
@@ -51,6 +52,10 @@ public interface UserDao {
     @UseStringTemplateSqlLocator
     @SqlUpdate("delete")
     int delete(UUID id);
+
+    @UseStringTemplateSqlLocator
+    @SqlUpdate("updateMetadata")
+    int updateMetadata(@Bind("userId") UUID userId, @Bind("metadata") String metadata);
 
     @RegisterBeanMapper(com.lektralabs.thrones.pallbearer.jdbi.model.BasicUserRow.class)
     @UseStringTemplateSqlLocator

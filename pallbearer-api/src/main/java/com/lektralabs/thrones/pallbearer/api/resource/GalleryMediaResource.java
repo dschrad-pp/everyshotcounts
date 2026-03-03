@@ -1,7 +1,9 @@
 package com.lektralabs.thrones.pallbearer.api.resource;
 
 import com.lektralabs.thrones.pallbearer.datetime.NumberUtils;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.DrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.GalleryMediaService;
 import com.lektralabs.thrones.pallbearer.media.common.MediaConstants;
 import io.quarkus.vertx.http.Compressed;
@@ -36,6 +38,9 @@ public class GalleryMediaResource {
 
     @Inject
     GalleryMediaService galleryMediaService;
+
+    @Inject
+    DrillService drillService;
 
     @ConfigProperty(name = "pallbearer.media.store")
     String mediaStorePath;
@@ -72,34 +77,144 @@ public class GalleryMediaResource {
         }
     }
 
+    private static final String SERVER_BASE_URL = "http://103.99.202.227:8000";
+
     /**
-     * Return the bytes to a drill submission MP4 video file
+     * Return the full working video URL for a drill submission MP4 video file
+     *
+     * @param drillId Drill ID
+     * @return Video URL response
+     */
+    @GET
+    @Path("/drill/{drillId}/video.mp4")
+    @RolesAllowed({"ADMIN", "ATHLETE", "COACH", "USER"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getDrillVideo(@PathParam("drillId") UUID drillId) {
+        logger.info("Gallery resource received drill video URL request"
+                + " with drillId: {}", drillId);
+        try {
+            // Get the drill to find the mediaId
+            Optional<DrillRow> maybeDrill = drillService.findById(drillId);
+            
+            if (maybeDrill.isEmpty()) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("{\"error\": \"Drill not found for drill ID: " + drillId + "\"}")
+                        .build();
+            }
+            
+            DrillRow drillRow = maybeDrill.get();
+            Optional<UUID> maybeMediaId = drillRow.getMediaId();
+            
+            if (maybeMediaId.isEmpty()) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("{\"error\": \"No media associated with drill ID: " + drillId + "\"}")
+                        .build();
+            }
+            
+            UUID mediaId = maybeMediaId.get();
+            
+            // Construct the relative path: gallery/{mediaId}/source.mp4
+            String relativePath = String.format("gallery/%s/source.mp4", mediaId.toString());
+            
+            // URL encode the path
+            String encodedPath;
+            try {
+                encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
+                        .replace("+", "%20"); // Replace + with %20 for spaces
+            } catch (Exception e) {
+                logger.warn("Failed to encode path, using unencoded: {}", relativePath);
+                encodedPath = relativePath;
+            }
+            
+            // Return the full working video URL pointing to the video endpoint
+            String videoUrl = String.format("%s/api/media/gallery/video?path=%s", 
+                    SERVER_BASE_URL, encodedPath);
+            
+            logger.info("Returning video URL for drillId: {}, mediaId: {}, path: {}", 
+                    drillId, mediaId, relativePath);
+            
+            VideoUrlResponse response = VideoUrlResponse.builder()
+                    .videoUrl(videoUrl)
+                    .build();
+            
+            return Response.ok(response).build();
+        } catch (Exception e) {
+            logger.error("Error getting drill video URL for drillId: {}", drillId, e);
+            return Response.serverError()
+                    .entity("{\"error\": \"Failed to get video URL: " + e.getMessage() + "\"}")
+                    .build();
+        }
+    }
+
+    /**
+     * Serve the actual video file bytes for a drill submission
+     * This endpoint is used by the URL returned from getDrillVideo()
      *
      * @param drillId Drill ID
      * @return Video file bytes
      */
     @GET
-    @Path("/drill/{drillId}/video.mp4")
+    @Path("/drill/{drillId}/video/file.mp4")
     @RolesAllowed({"ADMIN", "ATHLETE", "COACH", "USER"})
     @Produces(MediaConstants.MP4_VIDEO_MIMETYPE)
-    public Response getDrillVideo(@PathParam("drillId") UUID drillId) {
-        logger.info("Gallery resource received drill video request"
+    public Response getDrillVideoFile(@PathParam("drillId") UUID drillId, @Context HttpHeaders headers) {
+        logger.info("Gallery resource received drill video file request"
                 + " with drillId: {}", drillId);
         try {
             byte[] bytes = galleryMediaService.getDrillVideo(drillId);
             if (bytes.length > 0) {
-                int length = bytes.length;
-                int start = 0;
-                int end = length - 1;
-                return Response.ok(bytes)
-                        .header("Accept-Ranges", "bytes")
-                        .header("Content-Range", "bytes " + start + "-" + end + "/" + length)
-                        .build();
+                long fileLength = bytes.length;
+                long start = 0;
+                long end = fileLength - 1;
+                
+                // Check for Range request header (required for Safari/iOS)
+                String rangeHeader = headers.getRequestHeaders().getFirst("Range");
+                
+                if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+                    // Parse Range header: "bytes=start-end" or "bytes=start-"
+                    String range = rangeHeader.substring(6); // Remove "bytes="
+                    String[] ranges = range.split("-");
+                    
+                    if (ranges.length >= 1 && !ranges[0].isEmpty()) {
+                        start = Long.parseLong(ranges[0]);
+                    }
+                    if (ranges.length >= 2 && !ranges[1].isEmpty()) {
+                        end = Long.parseLong(ranges[1]);
+                    }
+                    
+                    // Validate range
+                    if (start > end || start < 0 || end >= fileLength) {
+                        return Response.status(Response.Status.REQUESTED_RANGE_NOT_SATISFIABLE)
+                                .header("Content-Range", "bytes */" + fileLength)
+                                .build();
+                    }
+                    
+                    long contentLength = end - start + 1;
+                    byte[] rangeBytes = new byte[(int) contentLength];
+                    System.arraycopy(bytes, (int) start, rangeBytes, 0, (int) contentLength);
+                    
+                    logger.debug("Serving video range: bytes {}-{}/{}", start, end, fileLength);
+                    
+                    return Response.status(Response.Status.PARTIAL_CONTENT)
+                            .entity(rangeBytes)
+                            .header("Accept-Ranges", "bytes")
+                            .header("Content-Range", "bytes " + start + "-" + end + "/" + fileLength)
+                            .header("Content-Length", contentLength)
+                            .header("Cache-Control", "public, max-age=3600")
+                            .build();
+                } else {
+                    // No Range header - return full file
+                    return Response.ok(bytes)
+                            .header("Accept-Ranges", "bytes")
+                            .header("Content-Length", fileLength)
+                            .header("Cache-Control", "public, max-age=3600")
+                            .build();
+                }
             } else {
                 return Response.status(Response.Status.NOT_FOUND).build();
             }
         } catch (Exception e) {
-            logger.info(e.getMessage());
+            logger.error("Error serving drill video file for drillId: {}", drillId, e);
             return Response.serverError().build();
         }
     }
@@ -481,13 +596,13 @@ public class GalleryMediaResource {
      *
      * @param drillItemId Drill item ID for the associated video
      * @param upload Multipart media resource
-     * @return Media ID or server error
+     * @return Drill submission response with drillId, drillItemId, mediaId, and createdById
      */
     @POST
     @Path("/drill_item/{drillItemId}/drill/video")
     @RolesAllowed({"ADMIN", "COACH", "ATHLETE"})
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    @Produces(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
     @Compressed
     public Response DrillVideo(@PathParam("drillItemId") UUID drillItemId, @MultipartForm MultipartDrillSubmitResource upload) {
         logger.info("Gallery resource received drill item, athlete drill"
@@ -506,13 +621,21 @@ public class GalleryMediaResource {
             int attemptsReported = NumberUtils.toInt(upload.attemptsReported, 0);
             int makesReported = NumberUtils.toInt(upload.makesReported, 0);
 
-            Optional<UUID> result = athleteDrillService.drillSubmission(
+            Optional<com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow> result = athleteDrillService.drillSubmission(
                     drillItemId, UUID.fromString(upload.createdById),
                     upload.fileName, upload.file,
                     attemptsReported, makesReported);
 
             return result
-                    .map(mediaId -> Response.ok(mediaId).build())
+                    .map(drillRow -> {
+                        DrillSubmissionResponse response = DrillSubmissionResponse.builder()
+                                .drillId(drillRow.getId())
+                                .drillItemId(drillItemId)
+                                .mediaId(drillRow.getMediaId().orElse(null))
+                                .createdById(UUID.fromString(upload.createdById))
+                                .build();
+                        return Response.ok(response).build();
+                    })
                     .orElseGet(() -> Response.status(Response.Status.BAD_REQUEST.getStatusCode()).
                     entity("Failed to add drill media to drill item").build());
         } catch (Exception e) {

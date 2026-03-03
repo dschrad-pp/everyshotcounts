@@ -3,11 +3,17 @@ package com.lektralabs.thrones.pallbearer.api.resource;
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.DrillPartial;
 import com.lektralabs.thrones.pallbearer.api.model.partial.BulkCompleteResponse;
+import com.lektralabs.thrones.pallbearer.api.model.request.GroupLevelCompleteRequest;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.manager.AthleteDrillItemProgressManager;
 import com.lektralabs.thrones.pallbearer.jdbi.service.DrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
 import com.lektralabs.thrones.pallbearer.manager.AthleteMetricManager;
+import com.lektralabs.thrones.pallbearer.manager.utils.AthleteManagerUtils;
+import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
+import com.lektralabs.thrones.pallbearer.security.CurrentUserUtils;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -36,6 +42,15 @@ public class DrillResource {
 
     @Inject
     AthleteMetricManager athleteMetricManager;
+
+    @Inject
+    CurrentUserUtils currentUserUtils;
+
+    @Inject
+    AthleteDrillService athleteDrillService;
+
+    @Inject
+    AthleteManagerUtils athleteManagerUtils;
 
     @GET
     @Path("/{drillId}")
@@ -279,6 +294,241 @@ public class DrillResource {
             return Response.status(500)
                     .entity(new GenericApiResponse<>(500, "Failed to complete multiple drills: " + e.getMessage(),
                             null))
+                    .build();
+        }
+    }
+
+    @PUT
+    @Path("/group-level/complete")
+    @RolesAllowed({ "ADMIN", "ATHLETE", "COACH", "FAN", "USER" })
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response completeDrillsByGroupAndLevel(GroupLevelCompleteRequest request) {
+        try {
+            // Validate input
+            if (request == null) {
+                logger.error("❌ Invalid request: request is null");
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "Request is null", null))
+                        .build();
+            }
+
+            String groupName = request.getGroupName();
+            if (groupName == null || groupName.trim().isEmpty()) {
+                logger.error("❌ Invalid group name: {}", groupName);
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "Group name is required", null))
+                        .build();
+            }
+
+            // Validate that either levelIndex or orderIndex is provided, but not both
+            if (request.getLevelIndex() == null && request.getOrderIndex() == null) {
+                logger.error("❌ Either levelIndex or orderIndex must be provided");
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "Either levelIndex or orderIndex must be provided", null))
+                        .build();
+            }
+
+            if (request.getLevelIndex() != null && request.getOrderIndex() != null) {
+                logger.error("❌ Both levelIndex and orderIndex cannot be provided at the same time");
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "Both levelIndex and orderIndex cannot be provided at the same time", null))
+                        .build();
+            }
+
+            // Extract userId from token
+            UUID userId;
+            try {
+                userId = currentUserUtils.getCurrentUserId();
+                logger.info("🎯 Extracted userId from token: {}", userId);
+            } catch (Exception e) {
+                logger.error("❌ Failed to extract userId from token: {}", e.getMessage());
+                return Response.status(401)
+                        .entity(new GenericApiResponse<>(401, "Failed to extract user ID from token: " + e.getMessage(), null))
+                        .build();
+            }
+
+            // Map group name to UUID
+            UUID drillGroupId;
+            switch (groupName.toUpperCase()) {
+                case "BEGINNER":
+                    drillGroupId = DrillGroupConstants.BEGINNER_GROUP_ID;
+                    break;
+                case "INTERMEDIATE":
+                    drillGroupId = DrillGroupConstants.INTERMEDIATE_GROUP_ID;
+                    break;
+                case "ADVANCE":
+                case "ADVANCED":
+                    drillGroupId = DrillGroupConstants.ADVANCE_GROUP_ID;
+                    break;
+                case "ELITE":
+                    drillGroupId = DrillGroupConstants.ELITE_GROUP_ID;
+                    break;
+                default:
+                    logger.error("❌ Invalid group name: {}", groupName);
+                    return Response.status(400)
+                            .entity(new GenericApiResponse<>(400, 
+                                    "Invalid group name. Valid values are: BEGINNER, INTERMEDIATE, ADVANCE, ELITE", null))
+                            .build();
+            }
+
+            logger.info("🎯 Completing drills for userId={}, groupName={}, drillGroupId={}, levelIndex={}, orderIndex={}",
+                    userId, groupName, drillGroupId, request.getLevelIndex(), request.getOrderIndex());
+
+            // Find drills matching the criteria
+            List<AthleteDrillDetail> athleteDrillDetails;
+            if (request.getLevelIndex() != null) {
+                // Find by group and level index
+                athleteDrillDetails = athleteDrillService.findWithAthleteGroupAndLevel(
+                        userId, drillGroupId, request.getLevelIndex(), 
+                        FindOptions.builder().limit(9999).offset(0).build());
+            } else {
+                // Find by group and filter by order index
+                List<AthleteDrillDetail> allDrills = athleteDrillService.findWithAthleteAndGroup(
+                        userId, drillGroupId, 
+                        FindOptions.builder().limit(9999).offset(0).build());
+                athleteDrillDetails = athleteManagerUtils.withOrderIndex(
+                        drillGroupId, request.getOrderIndex(), allDrills);
+            }
+
+            if (athleteDrillDetails == null || athleteDrillDetails.isEmpty()) {
+                logger.warn("⚠️ No drills found for userId={}, groupName={}, levelIndex={}, orderIndex={}",
+                        userId, groupName, request.getLevelIndex(), request.getOrderIndex());
+                return Response.ok(
+                        new GenericApiResponse<>(200, 
+                                "No drills found matching the criteria", 
+                                new ArrayList<>()))
+                        .build();
+            }
+
+            logger.info("📋 Found {} drills to complete", athleteDrillDetails.size());
+
+            // Build DrillPartial list for bulk completion
+            List<DrillPartial> drillPartials = new ArrayList<>();
+            for (AthleteDrillDetail athleteDrillDetail : athleteDrillDetails) {
+                // Get passingScore and shotsMax from drill item
+                Integer passingScore = athleteDrillDetail.getPassingScore();
+                Integer shotsMax = athleteDrillDetail.getShotsMax();
+
+                // Set defaults if not available
+                if (passingScore == null) {
+                    passingScore = 3; // Default passing score
+                    logger.warn("⚠️ Passing score not found for drillItemId={}, using default: {}", 
+                            athleteDrillDetail.getDrillItemId(), passingScore);
+                }
+                if (shotsMax == null) {
+                    shotsMax = 20; // Default shots max
+                    logger.warn("⚠️ Shots max not found for drillItemId={}, using default: {}", 
+                            athleteDrillDetail.getDrillItemId(), shotsMax);
+                }
+
+                // Create DrillPartial with attempts/makes based on drill requirements
+                DrillPartial drillPartial = DrillPartial.builder()
+                        .drillItemId(athleteDrillDetail.getDrillItemId())
+                        .userId(userId)
+                        .drillStatus("COMPLETE")
+                        .mediaId(request.getMediaId() != null ? Optional.of(request.getMediaId()) : Optional.empty())
+                        .attemptsDetected(shotsMax) // Set to shotsMax
+                        .attemptsReported(shotsMax) // Set to shotsMax
+                        .makesDetected(passingScore) // Set to passingScore
+                        .makesReported(passingScore) // Set to passingScore
+                        .version(Optional.empty()) // Will be set by completeDrill
+                        .build();
+
+                drillPartials.add(drillPartial);
+            }
+
+            logger.info("📦 Prepared {} drill partials for completion", drillPartials.size());
+
+            // Use existing bulk complete logic
+            List<Object> results = new ArrayList<>();
+            List<String> errors = new ArrayList<>();
+            int successCount = 0;
+            int failureCount = 0;
+
+            // Process each drill completion
+            for (int i = 0; i < drillPartials.size(); i++) {
+                DrillPartial drillPartial = drillPartials.get(i);
+
+                try {
+                    UUID drillItemId = drillPartial.getDrillItemId();
+                    UUID placeholderDrillId = UUID.randomUUID(); // Will be ignored by completeDrill
+
+                    // Call the existing complete drill logic
+                    int result = athleteDrillItemProgressManager.completeDrill(placeholderDrillId, userId, drillPartial);
+
+                    if (result == 0) {
+                        String error = String.format("Drill at index %d: Failed to complete drill for drillItemId=%s", 
+                                i, drillItemId);
+                        logger.error("❌ {}", error);
+                        errors.add(error);
+                        failureCount++;
+                    } else {
+                        // Find the actual drill ID (may have been created)
+                        Optional<DrillRow> drillRowOpt = drillService.findByDrillItemIdAndUserId(drillItemId, userId);
+                        if (drillRowOpt.isPresent()) {
+                            UUID actualDrillId = drillRowOpt.get().getId();
+                            // Get the updated drill with history
+                            drillService.findByIdWithHistory(actualDrillId).ifPresent(drillWithHistory -> {
+                                results.add(drillWithHistory);
+                            });
+                            successCount++;
+                            logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s", 
+                                    i, actualDrillId, drillItemId);
+                        } else {
+                            String error = String.format("Drill at index %d: Drill was completed but not found after completion", i);
+                            logger.error("❌ {}", error);
+                            errors.add(error);
+                            failureCount++;
+                        }
+                    }
+
+                } catch (Exception e) {
+                    String error = String.format("Drill at index %d: Exception - %s", i, e.getMessage());
+                    logger.error("💥 {}", error, e);
+                    errors.add(error);
+                    failureCount++;
+                }
+            }
+
+            // Update metrics for all successful completions
+            if (successCount > 0) {
+                athleteMetricManager.updateDrillCompletionMetrics(userId);
+            }
+
+            // Prepare response
+            if (failureCount == 0) {
+                // All successful
+                logger.info("✅ All {} drills completed successfully for group={}, levelIndex={}, orderIndex={}", 
+                        successCount, groupName, request.getLevelIndex(), request.getOrderIndex());
+                return Response.ok(
+                        new GenericApiResponse<>(200,
+                                String.format("All %d drills completed successfully", successCount),
+                                results))
+                        .build();
+            } else if (successCount == 0) {
+                // All failed
+                logger.error("❌ All {} drills failed to complete", failureCount);
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400,
+                                String.format("All %d drills failed to complete", failureCount),
+                                errors))
+                        .build();
+            } else {
+                // Partial success
+                logger.warn("⚠️ Partial success: {} drills completed, {} drills failed", successCount, failureCount);
+                return Response.status(207) // Multi-Status
+                        .entity(new GenericApiResponse<>(207,
+                                String.format("Partial success: %d drills completed, %d drills failed", successCount,
+                                        failureCount),
+                                new BulkCompleteResponse(results, errors, successCount, failureCount)))
+                        .build();
+            }
+
+        } catch (Exception e) {
+            logger.error("💥 Exception occurred while completing drills by group and level: {}", e.getMessage(), e);
+            return Response.status(500)
+                    .entity(new GenericApiResponse<>(500, "Failed to complete drills: " + e.getMessage(), null))
                     .build();
         }
     }

@@ -38,6 +38,9 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
     @Inject
     GalleryMediaStore galleryMediaStore;
 
+    @Inject
+    ThumbnailGenerationService thumbnailGenerationService;
+
     public byte[] getDrillItemVideo(UUID drillItemId) {
         Optional<DrillItemRow> maybeDrillItem = drillItemService.findById(drillItemId);
 
@@ -215,6 +218,9 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
             logger.info("ading to gallery media pipeline");
             galleryMediaPipeline.addDrillItemVideoMedia(mediaId, fileName, videoFile);
 
+            // Generate thumbnail/still frame after video is saved
+            generateThumbnailForMedia(mediaId, videoFile);
+
             return Optional.of(mediaId);
         }
     }
@@ -260,6 +266,9 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
         galleryMediaPipeline.addDrillVideoMedia(drillRow.getId(), mediaId,
                 fileName, videoFile);
 
+        // Generate thumbnail/still frame after video is saved
+        generateThumbnailForMedia(mediaId, videoFile);
+
         return Optional.of(mediaId);
     }
 
@@ -278,5 +287,186 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
 
         // Recreate empty folder
         galleryMediaStore.createGalleryMediaStore(mediaId);
+    }
+
+    /**
+     * Check if thumbnail exists for a media item, and generate it if it doesn't exist
+     * Uses the video file at gallery/{mediaId}/source.mp4 to generate thumbnail
+     * 
+     * @param mediaId Media ID
+     * @return true if thumbnail exists or was successfully generated, false otherwise
+     */
+    public boolean ensureThumbnailExists(UUID mediaId) {
+        try {
+            // Get the still frame path where thumbnail should be saved
+            String stillFramePath = galleryMediaStore.getGalleryStillFramePath(mediaId);
+            
+            if (stillFramePath == null || stillFramePath.isEmpty()) {
+                logger.warnf("Could not determine still frame path for mediaId: %s", mediaId);
+                return false;
+            }
+
+            // Check if thumbnail already exists
+            File thumbnailFile = new File(stillFramePath);
+            if (thumbnailFile.exists() && thumbnailFile.length() > 0) {
+                logger.debugf("Thumbnail already exists for mediaId: %s at path: %s", mediaId, stillFramePath);
+                return true;
+            }
+
+            // Thumbnail doesn't exist, generate it
+            logger.infof("Thumbnail not found for mediaId: %s, generating thumbnail...", mediaId);
+            
+            // Get the video file path: gallery/{mediaId}/source.mp4
+            String inputVideoPath = galleryMediaStore.getGalleryInputPath(mediaId);
+            File inputVideoFile = null;
+            
+            if (inputVideoPath != null && !inputVideoPath.isEmpty()) {
+                inputVideoFile = new File(inputVideoPath);
+            }
+            
+            // If input path doesn't exist, try to construct path from mediaId
+            // Expected path: /home/ankit/Downloads/thrones-development/media/gallery/{mediaId}/source.mp4
+            if (inputVideoFile == null || !inputVideoFile.exists()) {
+                // Try to extract media store path from still frame path
+                // stillFramePath format: /path/to/media/gallery/{mediaId}/still-frame.jpg
+                // video path should be: /path/to/media/gallery/{mediaId}/source.mp4
+                String videoPath = stillFramePath.replace("/still-frame.jpg", "/source.mp4");
+                inputVideoFile = new File(videoPath);
+                
+                if (!inputVideoFile.exists()) {
+                    logger.warnf("Video file not found for thumbnail generation. MediaId: %s, Expected path: %s", 
+                        mediaId, videoPath);
+                    return false;
+                }
+            }
+            
+            logger.infof("Generating thumbnail for mediaId: %s from video: %s", mediaId, inputVideoFile.getAbsolutePath());
+            
+            boolean success = thumbnailGenerationService.generateThumbnail(inputVideoFile, stillFramePath);
+            
+            if (success) {
+                logger.infof("Successfully generated thumbnail for mediaId: %s at path: %s", mediaId, stillFramePath);
+                return true;
+            } else {
+                logger.errorf("Failed to generate thumbnail for mediaId: %s at path: %s", mediaId, stillFramePath);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            logger.errorf(e, "Error ensuring thumbnail exists for mediaId: %s", mediaId);
+            return false;
+        }
+    }
+
+    /**
+     * Get the thumbnail URL for a media item, ensuring thumbnail exists first
+     * 
+     * @param mediaId Media ID
+     * @param serverBaseUrl Base URL for constructing the thumbnail URL
+     * @return Thumbnail URL or null if thumbnail cannot be generated/accessed
+     */
+    public String getThumbnailUrl(UUID mediaId, String serverBaseUrl) {
+        // First ensure thumbnail exists
+        boolean thumbnailExists = ensureThumbnailExists(mediaId);
+        
+        if (!thumbnailExists) {
+            logger.warnf("Thumbnail does not exist and could not be generated for mediaId: %s", mediaId);
+            return null;
+        }
+        
+        // Get the still frame path
+        String stillFramePath = galleryMediaStore.getGalleryStillFramePath(mediaId);
+        
+        if (stillFramePath == null || stillFramePath.isEmpty()) {
+            logger.warnf("Could not determine still frame path for mediaId: %s", mediaId);
+            return null;
+        }
+        
+        // Convert local path to URL
+        // Extract relative path - look for /gallery/ in the path
+        String relativePath = stillFramePath;
+        int galleryIndex = stillFramePath.indexOf("/gallery/");
+        if (galleryIndex >= 0) {
+            // Extract path starting from "gallery/"
+            relativePath = stillFramePath.substring(galleryIndex + 1);
+        } else {
+            // If no /gallery/ found, try to extract just the filename and parent directory
+            // Path format: /path/to/media/gallery/{mediaId}/still-frame.jpg
+            // We want: gallery/{mediaId}/still-frame.jpg
+            String[] parts = stillFramePath.split("/");
+            if (parts.length >= 2) {
+                // Find mediaId (UUID format) in path
+                for (int i = 0; i < parts.length - 1; i++) {
+                    String part = parts[i];
+                    // Check if this looks like a UUID
+                    if (part.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+                        // Found mediaId, construct relative path
+                        relativePath = "gallery/" + part + "/" + parts[parts.length - 1];
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // URL encode the path
+        try {
+            String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            return String.format("%s/api/media/gallery/thumbnail?path=%s", serverBaseUrl, encodedPath);
+        } catch (Exception e) {
+            logger.warnf("Failed to encode thumbnail path: %s", relativePath);
+            return String.format("%s/api/media/gallery/thumbnail?path=%s", serverBaseUrl, relativePath);
+        }
+    }
+
+    /**
+     * Generate thumbnail/still frame for a media item
+     * 
+     * @param mediaId Media ID
+     * @param videoFile Original video file (used as fallback if input path doesn't exist yet)
+     */
+    private void generateThumbnailForMedia(UUID mediaId, File videoFile) {
+        try {
+            // Get the still frame path where thumbnail should be saved
+            String stillFramePath = galleryMediaStore.getGalleryStillFramePath(mediaId);
+            
+            if (stillFramePath == null || stillFramePath.isEmpty()) {
+                logger.warnf("Could not determine still frame path for mediaId: %s", mediaId);
+                return;
+            }
+
+            // Try to get the input video path (where pipeline saves the video)
+            String inputVideoPath = galleryMediaStore.getGalleryInputPath(mediaId);
+            File inputVideoFile = null;
+            
+            if (inputVideoPath != null && !inputVideoPath.isEmpty()) {
+                inputVideoFile = new File(inputVideoPath);
+            }
+            
+            // Use input video file if it exists, otherwise use the original uploaded file
+            File sourceVideoFile = (inputVideoFile != null && inputVideoFile.exists()) 
+                ? inputVideoFile 
+                : videoFile;
+            
+            if (sourceVideoFile == null || !sourceVideoFile.exists()) {
+                String originalPath = videoFile != null ? videoFile.getAbsolutePath() : "null";
+                logger.warnf("Video file not found for thumbnail generation. MediaId: %s, Input path: %s, Original file: %s", 
+                    mediaId, inputVideoPath, originalPath);
+                return;
+            }
+
+            logger.infof("Generating thumbnail for mediaId: %s from video: %s", mediaId, sourceVideoFile.getAbsolutePath());
+            
+            boolean success = thumbnailGenerationService.generateThumbnail(sourceVideoFile, stillFramePath);
+            
+            if (success) {
+                logger.infof("Successfully generated thumbnail for mediaId: %s at path: %s", mediaId, stillFramePath);
+            } else {
+                logger.errorf("Failed to generate thumbnail for mediaId: %s at path: %s", mediaId, stillFramePath);
+            }
+            
+        } catch (Exception e) {
+            logger.errorf(e, "Error generating thumbnail for mediaId: %s", mediaId);
+        }
     }
 }

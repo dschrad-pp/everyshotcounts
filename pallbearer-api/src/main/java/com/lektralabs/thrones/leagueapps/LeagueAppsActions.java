@@ -81,33 +81,44 @@ public class LeagueAppsActions implements UserPropertyConstants {
 
         // Normalize payment status and add to properties if present
         partial.getPaymentStatus().ifPresent(paymentStatus -> {
-            userPropertyMap.put(UserPropertyConstants.USER_REGISTRATION_PAYMENT_STATE_KEY, normalizePaymentStatus(paymentStatus));
+            userPropertyMap.put(UserPropertyConstants.USER_REGISTRATION_PAYMENT_STATE_KEY,
+                    normalizePaymentStatus(paymentStatus));
         });
 
         // Check if a user with the given ESC username already exists
         Optional<UserRow> maybeExistingUser = userService.findByEmail(partial.getEmail().get());
-        // System.out.println("=========================================================================== \n");
+        // System.out.println("===========================================================================
+        // \n");
         // System.out.println("maybeExistingUser: " + maybeExistingUser);
-        // System.out.println("=========================================================================== \n");
+        // System.out.println("===========================================================================
+        // \n");
         if (maybeExistingUser.isPresent()) {
             UserRow existingUser = maybeExistingUser.get();
-            // System.out.println("=========================================================================== \n");
+            // System.out.println("===========================================================================
+            // \n");
             // System.out.println("existingUser: " + existingUser);
-            // System.out.println("=========================================================================== \n");
+            // System.out.println("===========================================================================
+            // \n");
             // Always update their payment status property
             userPropertyService.addProperties(existingUser.getId(), userPropertyMap);
 
-            // If user has a Keycloak ID, consider them fully registered and skip new registration
+            // If user has a Keycloak ID, consider them fully registered and skip new
+            // registration
             if (existingUser.getKeycloakId() != null) {
-                // System.out.println("=========================================================================== \n");
-                // logger.info("User already registered with username: " + existingUser.getUsername());
-                // System.out.println("User already registered with email: " + existingUser.getEmail());
-                // System.out.println("=========================================================================== \n");
+                // System.out.println("===========================================================================
+                // \n");
+                // logger.info("User already registered with username: " +
+                // existingUser.getUsername());
+                // System.out.println("User already registered with email: " +
+                // existingUser.getEmail());
+                // System.out.println("===========================================================================
+                // \n");
                 return;
 
             }
 
-            // Otherwise continue to create a new user below (re-register inactive users if desired)
+            // Otherwise continue to create a new user below (re-register inactive users if
+            // desired)
         } else {
             // Build the new user registration object
             // Username is stored in lowercase for consistency
@@ -133,8 +144,7 @@ public class LeagueAppsActions implements UserPropertyConstants {
             try {
                 userService.newRegistrationEmail(
                         partial.getEmail().orElse("support@everyshotcounts.com"),
-                        sixDigitCode
-                );
+                        sixDigitCode);
             } catch (Exception e) {
                 logger.error("Could not send email to user [%s]".formatted(registerUserPartial), e);
             }
@@ -189,8 +199,7 @@ public class LeagueAppsActions implements UserPropertyConstants {
                 Map.entry(USER_DRILL_GROUP_LEVEL_KEY, "1.0"),
                 Map.entry(USER_TERMS_AND_CONDITIONS_ACCEPT, registrationItem.getAgeAcknowledgement()),
                 Map.entry(USER_METRIC_DRILL_GROUP_COMPLETION_PERCENT, "0"),
-                Map.entry(USER_METRIC_DRILL_LEVEL_COMPLETION_PERCENT, "0")
-        );
+                Map.entry(USER_METRIC_DRILL_LEVEL_COMPLETION_PERCENT, "0"));
         userPropertyService.addProperties(userRow.getId(), userPropertyMap);
     }
 
@@ -200,18 +209,16 @@ public class LeagueAppsActions implements UserPropertyConstants {
             return -1;
         }
 
-        return actionItem.getUser().getUserId().flatMap(userId
-                -> userPropertyService.findByKey(userId, UserPropertyConstants.USER_REGISTRATION_STATE_KEY).map(userPropertyRow -> {
+        return actionItem.getUser().getUserId().flatMap(userId -> userPropertyService
+                .findByKey(userId, UserPropertyConstants.USER_REGISTRATION_STATE_KEY).map(userPropertyRow -> {
                     return userPropertyService.update(
                             userPropertyRow.toBuilder()
                                     .propertyValue(UserPropertyConstants.USER_REGISTRATION_STATE_UNREGISTERED)
-                                    .build()
-                    );
-                })
-        ).orElseGet(() -> {
-            logger.warn("Could not update user to unregistered [%s]".formatted(actionItem));
-            return -1;
-        });
+                                    .build());
+                })).orElseGet(() -> {
+                    logger.warn("Could not update user to unregistered [%s]".formatted(actionItem));
+                    return -1;
+                });
     }
 
     protected void logNoop(EscActionEnum action, EscActionItem actionItem) {
@@ -220,8 +227,7 @@ public class LeagueAppsActions implements UserPropertyConstants {
 
     protected int setActionCodeToCompleted(EscActionItem actionItem) {
         return escLeagueAppsMemberActionService.update(
-                actionItem.getElama().toBuilder().actionCode("COMPLETED").build()
-        );
+                actionItem.getElama().toBuilder().actionCode("COMPLETED").build());
     }
 
     protected EscActionEnum getAction(EscActionItem actionItem) {
@@ -239,7 +245,7 @@ public class LeagueAppsActions implements UserPropertyConstants {
             }
         } else {
             System.out.println("=========================================================================== \n");
-            System.out.println("isRegistered Line 235: else statement" );
+            System.out.println("isRegistered Line 235: else statement");
             System.out.println("=========================================================================== \n");
             if (isPayment(actionItem)) {
                 System.out.println("=========================================================================== \n");
@@ -268,7 +274,8 @@ public class LeagueAppsActions implements UserPropertyConstants {
     private boolean isPayment(EscActionItem actionItem) {
         if (actionItem.getElama() != null) {
             Optional<String> paymentStatus = actionItem.getElama().getPaymentStatus();
-            return contains(paymentStatus, "PAID") || contains(paymentStatus, "PARTIAL");
+            return contains(paymentStatus, "PAID") || contains(paymentStatus, "PARTIAL")
+                    || contains(paymentStatus, "TRIAL");
         } else {
             return false;
         }

@@ -33,6 +33,7 @@ public class JdbiProvider {
         jdbi = Jdbi.create(defaultDataSource)
                 .registerColumnMapper(new DateTimeMapper())
                 .registerColumnMapper(new OptionalUUIDMapper())
+                .registerColumnMapper(new com.lektralabs.thrones.pallbearer.jdbi.reducer.JsonMetadataColumnMapper())
                 .setSqlLogger(sqlLogger)
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin())

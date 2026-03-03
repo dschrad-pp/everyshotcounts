@@ -143,7 +143,7 @@ public class AthleteDrillService {
                         .build();
                 detail.setDrillDetail(Optional.of(defaultDrillDetail));
             }
-            
+
             // Convert local file path to URL if mediaThumbnail is a local path
             if (detail.getMediaThumbnail() != null && !detail.getMediaThumbnail().isEmpty()) {
                 String thumbnailPath = detail.getMediaThumbnail();
@@ -192,9 +192,10 @@ public class AthleteDrillService {
      * @param videoFile        Video file handle
      * @param attemptsReported Athlete reported attempts count
      * @param makesReported    Athlete reported makes count
-     * @return Some drill ID or None
+     * @return DrillRow with all submission details including drillId, drillItemId,
+     *         mediaId, and userId
      */
-    public Optional<UUID> drillSubmission(UUID drillItemId,
+    public Optional<DrillRow> drillSubmission(UUID drillItemId,
             UUID athleteUserId,
             String fileName,
             File videoFile,
@@ -215,7 +216,7 @@ public class AthleteDrillService {
         }
     }
 
-    private Optional<UUID> drillSubmission(DrillItemRow drillItemRow,
+    private Optional<DrillRow> drillSubmission(DrillItemRow drillItemRow,
             UUID athleteUserId,
             String fileName,
             File videoFile,
@@ -233,7 +234,8 @@ public class AthleteDrillService {
 
             addDrillMedia(drillRow, fileName, videoFile);
 
-            return Optional.of(drillRow.getId());
+            // Refresh drill row to get updated mediaId
+            return drillService.findById(drillRow.getId());
         } else {
             logger.info("Athlete drill service creating athlete drill"
                     + " for athlete {} drill item {}",
@@ -258,7 +260,7 @@ public class AthleteDrillService {
         }
     }
 
-    private Optional<UUID> drillSubmission(Optional<DrillRow> maybeDrillRow,
+    private Optional<DrillRow> drillSubmission(Optional<DrillRow> maybeDrillRow,
             String fileName,
             File videoFile) {
         if (maybeDrillRow.isPresent()) {
@@ -266,7 +268,8 @@ public class AthleteDrillService {
 
             addDrillMedia(drillRow, fileName, videoFile);
 
-            return Optional.of(drillRow.getId());
+            // Refresh drill row to get updated mediaId
+            return drillService.findById(drillRow.getId());
         } else {
             // something is wrong...
             return Optional.empty();
@@ -439,7 +442,7 @@ public class AthleteDrillService {
         List<AthleteDrillDetail> athleteDrillDetails = new ArrayList<>();
 
         List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
-        logger.info(String.format("the lsit is : %s", assignedAthletes));
+        // logger.info(String.format("the lsit is : %s", assignedAthletes));
         boolean isAssigned = assignedAthletes.stream()
                 .anyMatch(a -> a.getUserId().equals(athleteUserId));
 
@@ -504,7 +507,18 @@ public class AthleteDrillService {
             if (drillItemRow.isPresent()) {
                 String mediaThumbnailUrl = null;
                 if (drillDetail.getMediaId().isPresent()) {
-                    mediaThumbnailUrl = generateMediaThumbnailUrl(drillDetail.getMediaId().get());
+                    UUID mediaId = drillDetail.getMediaId().get();
+
+                    // Check if thumbnail exists and generate if not
+                    // This ensures thumbnail is created from video at gallery/{mediaId}/source.mp4
+                    mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+
+                    // Fallback to old method if new method returns null
+                    if (mediaThumbnailUrl == null) {
+                        logger.warn("Could not get thumbnail URL for mediaId: {}, drillId: {}, using fallback",
+                                mediaId, drillRow.getId());
+                        mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
+                    }
                 }
 
                 AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
@@ -548,92 +562,121 @@ public class AthleteDrillService {
     }
 
     private String generateMediaThumbnailUrl(UUID mediaId) {
-        // Example:
-        // http://103.99.202.227/media/thumbnail/508f2649-4db9-4b0a-9a04-6b6ad87f7cb2/still-frame.jpg
-        return String.format("%s/media/thumbnail/%s/still-frame.jpg", SERVER_BASE_URL, mediaId.toString());
+        // Fetch the actual contentUrl from media table
+        Optional<MediaRow> mediaRow = mediaService.findById(mediaId);
+        if (mediaRow.isPresent() && mediaRow.get().getContentUrl().isPresent()) {
+            String contentUrl = mediaRow.get().getContentUrl().get();
+
+            // Convert local file path to URL if it's a local path
+            if (contentUrl != null && contentUrl.startsWith("/") && !contentUrl.startsWith("http")) {
+                // Convert local path to URL
+                String convertedUrl = convertLocalPathToVideoUrl(contentUrl);
+                logger.debug("Converted local video path to URL: {} -> {}", contentUrl, convertedUrl);
+                return convertedUrl;
+            } else {
+                // If it's already a URL (http/https), use it as-is
+                return contentUrl;
+            }
+        } else {
+            // Fallback to the old URL format if contentUrl is not available
+            logger.warn("Could not find media contentUrl for mediaId: {}, using fallback URL", mediaId);
+            return String.format("%s/media/thumbnail/%s/still-frame.jpg", SERVER_BASE_URL, mediaId.toString());
+        }
     }
 
     /**
      * Converts a local file path to a URL that can be accessed via HTTP.
-     * Supports both old format (with /gallery/) and new format (directly under mediaStorePath).
+     * Supports both old format (with /gallery/) and new format (directly under
+     * mediaStorePath).
      * 
-     * Old format: {mediaStorePath}/gallery/{group}/{level}_{drill}/{mediaId}/thumbnail.jpg
+     * Old format:
+     * {mediaStorePath}/gallery/{group}/{level}_{drill}/{mediaId}/thumbnail.jpg
      * New format: {mediaStorePath}/{groupName}/{unique_id}/thumbnail.jpg
      * 
-     * @param localPath Local file path (e.g., "/home/ankit/Downloads/thrones-development/media/Intermediate/intermediate_1_1/thumbnail.jpg")
-     * @return URL that can be used to access the file (e.g., "http://103.99.202.227/api/media/gallery/thumbnail?path=Intermediate/intermediate_1_1/thumbnail.jpg")
+     * @param localPath Local file path (e.g.,
+     *                  "/home/ankit/Downloads/thrones-development/media/Intermediate/intermediate_1_1/thumbnail.jpg")
+     * @return URL that can be used to access the file (e.g.,
+     *         "http://103.99.202.227/api/media/gallery/thumbnail?path=Intermediate/intermediate_1_1/thumbnail.jpg")
      */
     private String convertLocalPathToUrl(String localPath) {
         if (localPath == null || localPath.isEmpty()) {
             return null;
         }
-        
+
         // If it's already a URL (http/https), return as-is
         if (localPath.startsWith("http://") || localPath.startsWith("https://")) {
             return localPath;
         }
-        
+
         // Try to extract relative path from the local path
         String relativePath = null;
-        
+
         // Check for new format: {mediaStorePath}/{groupName}/{unique_id}/thumbnail.jpg
         // This format doesn't have "/gallery/" in it
         if (localPath.contains("/thumbnail.jpg") && !localPath.contains("/gallery/")) {
-            // Check if path matches new format: ends with /thumbnail.jpg and has structure {group}/{unique_id}/thumbnail.jpg
+            // Check if path matches new format: ends with /thumbnail.jpg and has structure
+            // {group}/{unique_id}/thumbnail.jpg
             String[] pathParts = localPath.split("/");
             if (pathParts.length >= 3 && pathParts[pathParts.length - 1].equals("thumbnail.jpg")) {
                 // Find the directories before thumbnail.jpg
-                // Last part is "thumbnail.jpg", second last is {unique_id}, third last is {groupName}
+                // Last part is "thumbnail.jpg", second last is {unique_id}, third last is
+                // {groupName}
                 String uniqueId = pathParts[pathParts.length - 2];
                 String groupName = pathParts.length >= 3 ? pathParts[pathParts.length - 3] : null;
-                
+
                 // Check if this looks like the new format (groupName/unique_id/thumbnail.jpg)
-                // Common group names: Beginner, Intermediate, Advanced, Elite (case-insensitive)
+                // Common group names: Beginner, Intermediate, Advanced, Elite
+                // (case-insensitive)
                 if (groupName != null) {
-                    String[] knownGroups = {"Beginner", "Intermediate", "Advanced", "Elite", 
-                                           "beginner", "intermediate", "advanced", "elite"};
-                    
+                    String[] knownGroups = { "Beginner", "Intermediate", "Advanced", "Elite",
+                            "beginner", "intermediate", "advanced", "elite" };
+
                     for (String group : knownGroups) {
                         if (groupName.equalsIgnoreCase(group)) {
-                            // Found a group name, extract relative path: {groupName}/{unique_id}/thumbnail.jpg
+                            // Found a group name, extract relative path:
+                            // {groupName}/{unique_id}/thumbnail.jpg
                             relativePath = groupName + "/" + uniqueId + "/thumbnail.jpg";
-                            logger.debug("Detected new format path - Group: {}, UniqueId: {}, Relative path: {}", 
-                                       groupName, uniqueId, relativePath);
+                            logger.debug("Detected new format path - Group: {}, UniqueId: {}, Relative path: {}",
+                                    groupName, uniqueId, relativePath);
                             break;
                         }
                     }
                 }
             }
         }
-        
+
         // If we didn't find new format, try old format with /gallery/
         if (relativePath == null) {
             int galleryIndex = localPath.indexOf("/gallery/");
             if (galleryIndex >= 0) {
                 // Extract relative path starting from "gallery/"
                 relativePath = localPath.substring(galleryIndex + 1); // +1 to skip the leading /
-                
+
                 // Parse the path: gallery/{group}/{drillFolder}/{mediaId}/thumbnail.jpg
                 String[] parts = relativePath.split("/");
-                if (parts.length >= 5 && parts[0].equals("gallery") && parts[parts.length - 1].equals("thumbnail.jpg")) {
+                if (parts.length >= 5 && parts[0].equals("gallery")
+                        && parts[parts.length - 1].equals("thumbnail.jpg")) {
                     // parts[1] = group (e.g., "Beginner")
                     // parts[2] = drillFolder (e.g., "1_15_ft_One-Dribble_Pull-Up_Right")
                     // parts[3] = mediaId (e.g., "08c6b31c-b81b-4835-b06c-caabe1008f8c")
                     String group = parts[1];
                     String drillFolder = parts[2];
                     String mediaId = parts[3];
-                    
+
                     try {
                         // JAX-RS automatically decodes path parameters, so we need to URL encode them
                         String encodedGroup = java.net.URLEncoder.encode(group, java.nio.charset.StandardCharsets.UTF_8)
                                 .replace("+", "%20");
-                        String encodedDrillFolder = java.net.URLEncoder.encode(drillFolder, java.nio.charset.StandardCharsets.UTF_8)
+                        String encodedDrillFolder = java.net.URLEncoder
+                                .encode(drillFolder, java.nio.charset.StandardCharsets.UTF_8)
                                 .replace("+", "%20");
-                        String encodedMediaId = java.net.URLEncoder.encode(mediaId, java.nio.charset.StandardCharsets.UTF_8)
+                        String encodedMediaId = java.net.URLEncoder
+                                .encode(mediaId, java.nio.charset.StandardCharsets.UTF_8)
                                 .replace("+", "%20");
-                        
-                        // Use path-based endpoint: /api/media/gallery/thumbnail/{group}/{drillFolder}/{mediaId}/thumbnail.jpg
-                        String url = String.format("%s/api/media/gallery/thumbnail/%s/%s/%s/thumbnail.jpg", 
+
+                        // Use path-based endpoint:
+                        // /api/media/gallery/thumbnail/{group}/{drillFolder}/{mediaId}/thumbnail.jpg
+                        String url = String.format("%s/api/media/gallery/thumbnail/%s/%s/%s/thumbnail.jpg",
                                 SERVER_BASE_URL, encodedGroup, encodedDrillFolder, encodedMediaId);
                         logger.debug("Converted local path {} to URL: {}", localPath, url);
                         return url;
@@ -643,8 +686,9 @@ public class AthleteDrillService {
                 }
             }
         }
-        
-        // If we have a relative path (either new or old format), use query parameter endpoint
+
+        // If we have a relative path (either new or old format), use query parameter
+        // endpoint
         if (relativePath != null) {
             try {
                 String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -657,7 +701,7 @@ public class AthleteDrillService {
                 return String.format("%s/api/media/gallery/thumbnail?path=%s", SERVER_BASE_URL, relativePath);
             }
         }
-        
+
         // Fallback: if we can't extract relative path, try to use the full path
         logger.warn("Could not extract relative path from: " + localPath);
         try {
@@ -715,7 +759,17 @@ public class AthleteDrillService {
             Optional<MediaRow> mediaRow = mediaService.findById(mediaId);
             if (mediaRow.isPresent() && mediaRow.get().getContentUrl().isPresent()) {
                 String contentUrl = mediaRow.get().getContentUrl().get();
-                builder.videoUrl(contentUrl);
+
+                // Convert local file path to URL if it's a local path
+                if (contentUrl != null && contentUrl.startsWith("/") && !contentUrl.startsWith("http")) {
+                    // Convert local path to URL
+                    String convertedUrl = convertLocalPathToVideoUrl(contentUrl);
+                    logger.debug("Converted local video path to URL: {} -> {}", contentUrl, convertedUrl);
+                    builder.videoUrl(convertedUrl);
+                } else {
+                    // If it's already a URL (http/https), use it as-is
+                    builder.videoUrl(contentUrl);
+                }
             } else {
                 // Fallback to the old URL format if contentUrl is not available
                 String drillItemVideoUrl = String.format("%s/api/media/gallery/drill_item/%s/video.mp4",
@@ -728,6 +782,101 @@ public class AthleteDrillService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Converts a local video file path to a URL that can be accessed via HTTP.
+     * Supports both old format (with /gallery/) and new format (directly under
+     * mediaStorePath).
+     * 
+     * Old format:
+     * {mediaStorePath}/gallery/{group}/{level}_{drill}/{mediaId}/video.mp4
+     * New format: {mediaStorePath}/{groupName}/{unique_id}/video.mp4
+     * 
+     * @param localPath Local file path (e.g.,
+     *                  "/home/ankit/Downloads/thrones-development/media/Intermediate/intermediate_1_1/video.mp4")
+     * @return URL that can be used to access the video file
+     */
+    private String convertLocalPathToVideoUrl(String localPath) {
+        logger.debug("Converting local path to video URL: {}", localPath);
+        if (localPath == null || localPath.isEmpty()) {
+            return null;
+        }
+
+        // If it's already a URL (http/https), return as-is
+        if (localPath.startsWith("http://") || localPath.startsWith("https://")) {
+            return localPath;
+        }
+
+        // Try to extract relative path from the local path
+        String relativePath = null;
+
+        // Check for new format: {mediaStorePath}/{groupName}/{unique_id}/video.mp4
+        // This format doesn't have "/gallery/" in it
+        if (localPath.contains("/video.mp4") && !localPath.contains("/gallery/")) {
+            // Check if path matches new format: ends with /video.mp4 and has structure
+            // {group}/{unique_id}/video.mp4
+            String[] pathParts = localPath.split("/");
+            if (pathParts.length >= 3 && pathParts[pathParts.length - 1].equals("video.mp4")) {
+                // Find the directories before video.mp4
+                // Last part is "video.mp4", second last is {unique_id}, third last is
+                // {groupName}
+                String uniqueId = pathParts[pathParts.length - 2];
+                String groupName = pathParts.length >= 3 ? pathParts[pathParts.length - 3] : null;
+
+                // Check if this looks like the new format (groupName/unique_id/video.mp4)
+                // Common group names: Beginner, Intermediate, Advanced, Elite
+                // (case-insensitive)
+                if (groupName != null) {
+                    String[] knownGroups = { "Beginner", "Intermediate", "Advanced", "Elite",
+                            "beginner", "intermediate", "advanced", "elite" };
+
+                    for (String group : knownGroups) {
+                        if (groupName.equalsIgnoreCase(group)) {
+                            // Found a group name, extract relative path: {groupName}/{unique_id}/video.mp4
+                            relativePath = groupName + "/" + uniqueId + "/video.mp4";
+                            logger.debug("Detected new format path - Group: {}, UniqueId: {}, Relative path: {}",
+                                    groupName, uniqueId, relativePath);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If we didn't find new format, try old format with /gallery/
+        if (relativePath == null) {
+            int galleryIndex = localPath.indexOf("/gallery/");
+            if (galleryIndex >= 0) {
+                // Extract relative path starting from "gallery/"
+                relativePath = localPath.substring(galleryIndex + 1); // +1 to skip the leading /
+            }
+        }
+
+        // If we have a relative path (either new or old format), use query parameter
+        // endpoint
+        if (relativePath != null) {
+            try {
+                String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
+                        .replace("+", "%20"); // Replace + with %20 for spaces
+                String url = String.format("%s/api/media/gallery/video?path=%s", SERVER_BASE_URL, encodedPath);
+                logger.debug("Converted local video path {} to URL: {}", localPath, url);
+                return url;
+            } catch (Exception e) {
+                logger.warn("Error encoding video path: " + relativePath, e);
+                return String.format("%s/api/media/gallery/video?path=%s", SERVER_BASE_URL, relativePath);
+            }
+        }
+
+        // Fallback: if we can't extract relative path, try to use the full path
+        logger.warn("Could not extract relative path from: " + localPath);
+        try {
+            String encodedPath = java.net.URLEncoder.encode(localPath, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            return String.format("%s/api/media/gallery/video?path=%s", SERVER_BASE_URL, encodedPath);
+        } catch (Exception e) {
+            return localPath; // Return original path if we can't convert it
+        }
     }
 
     /**
