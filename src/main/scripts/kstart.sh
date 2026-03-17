@@ -21,7 +21,8 @@ while getopts ":h?rd" opt; do
 done
 
 # Absolute paths
-PALLBEARER_HOME="/home/ankit/Downloads/thrones-development/pallbearer"
+PALLBEARER_HOME="//"
+PALLBEARER_HOME="/var/www/html/pallbearer"
 PALLBEARER_API="$PALLBEARER_HOME/pallbearer-api"
 
 # Add SDKMAN Quarkus and Maven to PATH
@@ -29,6 +30,11 @@ export PATH="$HOME/.sdkman/candidates/quarkus/current/bin:$HOME/.sdkman/candidat
 
 # Optional: Java Home
 export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+
+# Database and Keycloak (Keycloak on 8180, not 8080)
+export PGHOST="${PGHOST:-localhost}"
+export PGPASSWORD="${PGPASSWORD:-db#2700}"
+export KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8180}"
 
 # Recompile if requested
 if [[ $RECOMPILE -eq 1 ]]; then
@@ -47,7 +53,7 @@ if [[ $LOGDEBUG -eq 1 ]]; then
   echo "Debug enabled"
   if [[ -d "$PALLBEARER_API" ]]; then
     cd "$PALLBEARER_API"
-    quarkus dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.log.level=DEBUG
+    quarkus dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8000 -Dquarkus.log.level=DEBUG
   else
     echo "Error: $PALLBEARER_API does not exist"
     exit 1
@@ -56,7 +62,7 @@ else
   echo "Debug not enabled"
   if [[ -d "$PALLBEARER_API" ]]; then
     cd "$PALLBEARER_API"
-    quarkus dev -Dquarkus.http.host=0.0.0.0
+    quarkus dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8000
   else
     echo "Error: $PALLBEARER_API does not exist"
     exit 1
