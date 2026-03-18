@@ -3,7 +3,11 @@ package com.lektralabs.thrones.pallbearer.api.resource;
 import com.lektralabs.thrones.pallbearer.api.model.keycloak.OpenIdResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.LoginUser;
 import com.lektralabs.thrones.pallbearer.security.KeycloakProvider;
-
+import com.lektralabs.thrones.crm.CrmApiClient;
+import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
+import com.lektralabs.thrones.pallbearer.api.model.partial.RegisterUserPartial;
+import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -29,6 +33,13 @@ public class SsoResource {
 
     @Inject
     KeycloakProvider keycloakProvider;
+    @Inject
+    CrmApiClient crmApiClient;
+
+    @Inject
+    UserService userService;
+
+
 
     @Path("/login")
     @POST
@@ -90,6 +101,76 @@ public class SsoResource {
                             Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(),
                             "Logout failed",
                             null))
+                    .build();
+        }
+    }
+
+
+    @Path("/crm-login")
+    @POST
+    @PermitAll
+    public Response crmLogin(LoginUser loginUser) {
+        String username = loginUser.getUsername();
+        String password = loginUser.getPassword();
+    
+        if (username == null || username.isBlank() || password == null || password.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new GenericApiResponse<>(400, "Username and password are required", null))
+                    .build();
+        }
+    
+        try {
+            boolean crmValid = crmApiClient.validateUserCredentials(username, password);
+            if (!crmValid) {
+                logger.warn("CRM credential validation failed for user: {}", username);
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity(new GenericApiResponse<>(401, "Invalid credentials", null))
+                        .build();
+            }
+    
+            UserRow userRow = userService.findByUsername(username)
+                    .orElseThrow(() -> new IllegalStateException("User not found in system after CRM validation: " + username));
+    
+            boolean isNewUser = (userRow.getKeycloakId() == null);
+    
+            if (isNewUser) {
+                logger.info("CRM login: provisioning new Keycloak user for {}", username);
+                RegisterUserPartial partial = RegisterUserPartial.builder()
+                        .username(username.toLowerCase())
+                        .password(password)
+                        .email(userRow.getEmail())
+                        .firstName("")
+                        .lastName("")
+                        .phoneNumber("")
+                        .birthDate(0L)
+                        .role("ATHLETE")
+                        .build();
+                userService.activateUser(partial);
+            } else {
+                logger.info("CRM login: syncing Keycloak password for existing user {}", username);
+                keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
+            }
+    
+            OpenIdResponse tokenResponse = keycloakProvider.getUserAccessToken(username, password);
+    
+            java.util.Map<String, Object> responseBody = new java.util.HashMap<>();
+            responseBody.put("access_token", tokenResponse.getAccessToken());
+            responseBody.put("refresh_token", tokenResponse.getRefreshToken());
+            responseBody.put("expires_in", tokenResponse.getExpiresIn());
+            responseBody.put("token_type", tokenResponse.getTokenType());
+            responseBody.put("role", tokenResponse.getRole());
+            responseBody.put("is_new_user", isNewUser);
+            return Response.ok(responseBody).build();
+    
+        } catch (IllegalStateException e) {
+            logger.warn("CRM login user not found: {}", e.getMessage());
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new GenericApiResponse<>(401, "User not registered in system", null))
+                    .build();
+        } catch (Exception e) {
+            logger.error("CRM login failed for user: {}", username, e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new GenericApiResponse<>(500, "Login failed", null))
                     .build();
         }
     }

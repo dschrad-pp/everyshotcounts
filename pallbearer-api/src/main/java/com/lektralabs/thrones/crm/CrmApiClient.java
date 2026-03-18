@@ -171,4 +171,36 @@ public class CrmApiClient {
             throw new IOException("Unexpected response format: " + responseBody);
         }
     }
+
+    ///**
+     //* Validate user credentials against CRM API
+     //*/
+    public boolean validateUserCredentials(String username, String password) throws IOException {
+    String url = CRM_BASE_URL + AUTH_ENDPOINT;
+
+    RequestBody body = RequestBody.create(
+        String.format("{\"grant_type\":\"password\",\"username\":\"%s\",\"password\":\"%s\"}",
+            username, password),
+        MediaType.parse("application/json")
+    );
+
+    Request request = new Request.Builder()
+        .url(url)
+        .post(body)
+        .addHeader("Content-Type", "application/json")
+        .addHeader("Accept", "application/json")
+        .build();
+
+    logger.info("Validating CRM credentials for user: " + username);
+    try (Response response = client.newCall(request).execute()) {
+        if (response.code() == 200) {
+            return true;
+        } else if (response.code() == 401 || response.code() == 403) {
+            return false;
+        } else {
+            String errorBody = response.body() != null ? response.body().string() : "No error body";
+            throw new IOException("Unexpected CRM response. Status: " + response.code() + ", Error: " + errorBody);
+        }
+    }
+}
 }
