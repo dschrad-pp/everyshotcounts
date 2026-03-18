@@ -182,7 +182,7 @@ public class CrmApiClient {
 
 public boolean validateUserCredentials(String username, String password) throws IOException {
     // Updated endpoint path
-    String url = "https://crm.everyshotcounts.ai/api/auth/validate-credentials";
+    String url = "https://crm.everyshotcounts.ai/api/auth/validate-credentials/";
     
     // Get CRM API key from environment variable
     // String crmApiKey = System.getenv("CRM_IOS_API_KEY");

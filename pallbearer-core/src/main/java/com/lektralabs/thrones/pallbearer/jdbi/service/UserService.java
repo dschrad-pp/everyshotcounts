@@ -441,10 +441,18 @@ public class UserService implements CoreConstants, UserPropertyConstants {
         mapUserToTeam(userRow.getId());
     }
 
+    // private void mapUserToTeam(UUID athleteUserId) {
+    //     // default team id for team basketball
+    //     UUID teamId = UUID.fromString("2a3b4697-26ee-4294-812e-6e1b00bd8e90");
+    //     teamService.mapUserToTeam(athleteUserId, teamId);
+    // }
     private void mapUserToTeam(UUID athleteUserId) {
-        // default team id for team basketball
-        UUID teamId = UUID.fromString("2a3b4697-26ee-4294-812e-6e1b00bd8e90");
+    UUID teamId = UUID.fromString("2a3b4697-26ee-4294-812e-6e1b00bd8e90");
+    try {
         teamService.mapUserToTeam(athleteUserId, teamId);
+    } catch (Exception e) {
+        logger.warnf("Failed to map user %s to team %s (non-critical): %s", athleteUserId, teamId, e.getMessage());
+    }
     }
 
     private void assignKeycloakRole(UUID keycloakUserId, String roleName) {

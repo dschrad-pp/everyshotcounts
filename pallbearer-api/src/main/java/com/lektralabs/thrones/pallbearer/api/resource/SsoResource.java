@@ -148,12 +148,17 @@ public class SsoResource {
                         .birthDate(0L)
                         .role("ATHLETE")
                         .build();
+                // try {
+                //     userService.activateUser(partial);
+                // } catch (RegistrationException e) {
+                //     // User was already activated in a previous attempt — safe to continue
+                //     logger.warn("CRM login: activation skipped for {} (already activated): {}", username, e.getMessage());
+                // }
                 try {
-                    userService.activateUser(partial);
-                } catch (RegistrationException e) {
-                    // User was already activated in a previous attempt — safe to continue
-                    logger.warn("CRM login: activation skipped for {} (already activated): {}", username, e.getMessage());
-                }
+                userService.activateUser(partial);
+                    } catch (Exception e) {
+                        logger.warn("CRM login: activation issue for {} (will attempt token anyway): {}", username, e.getMessage());
+                    }
             } else {
                 logger.info("CRM login: syncing Keycloak password for existing user {}", username);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
