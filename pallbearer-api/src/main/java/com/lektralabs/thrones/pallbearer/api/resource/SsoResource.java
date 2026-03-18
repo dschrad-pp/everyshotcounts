@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 
 import jakarta.ws.rs.HeaderParam;
+import com.lektralabs.thrones.pallbearer.jdbi.exception.RegistrationException;
 
 @Path("/api/sso")
 @Produces(MediaType.APPLICATION_JSON)
@@ -131,7 +132,9 @@ public class SsoResource {
             UserRow userRow = userService.findByUsername(username)
                     .orElseThrow(() -> new IllegalStateException("User not found in system after CRM validation: " + username));
     
-            boolean isNewUser = (userRow.getKeycloakId() == null);
+            // FIX: treat placeholder UUID the same as null — user not yet in Keycloak
+            java.util.UUID placeholderUuid = java.util.UUID.fromString("00000000-0000-0000-0000-000000000000");
+            boolean isNewUser = (userRow.getKeycloakId() == null || placeholderUuid.equals(userRow.getKeycloakId()));
     
             if (isNewUser) {
                 logger.info("CRM login: provisioning new Keycloak user for {}", username);
@@ -145,7 +148,12 @@ public class SsoResource {
                         .birthDate(0L)
                         .role("ATHLETE")
                         .build();
-                userService.activateUser(partial);
+                try {
+                    userService.activateUser(partial);
+                } catch (RegistrationException e) {
+                    // User was already activated in a previous attempt — safe to continue
+                    logger.warn("CRM login: activation skipped for {} (already activated): {}", username, e.getMessage());
+                }
             } else {
                 logger.info("CRM login: syncing Keycloak password for existing user {}", username);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
@@ -158,10 +166,16 @@ public class SsoResource {
             responseBody.put("refresh_token", tokenResponse.getRefreshToken());
             responseBody.put("expires_in", tokenResponse.getExpiresIn());
             responseBody.put("token_type", tokenResponse.getTokenType());
-            responseBody.put("role", tokenResponse.getRole());
+            responseBody.put("roles", tokenResponse.getRole());   // FIX: was "role", iOS expects "roles"
             responseBody.put("is_new_user", isNewUser);
             return Response.ok(responseBody).build();
     
+        } catch (IllegalArgumentException e) {
+            // Keycloak rejected the token request (required actions, bad password sync, etc.)
+            logger.warn("CRM login Keycloak error for user {}: {}", username, e.getMessage());
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new GenericApiResponse<>(401, "Authentication failed: " + e.getMessage(), null))
+                    .build();
         } catch (IllegalStateException e) {
             logger.warn("CRM login user not found: {}", e.getMessage());
             return Response.status(Response.Status.UNAUTHORIZED)
