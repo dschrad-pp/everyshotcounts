@@ -5,6 +5,8 @@ import com.lektralabs.thrones.pallbearer.api.model.partial.LoginUser;
 import com.lektralabs.thrones.pallbearer.security.KeycloakProvider;
 import com.lektralabs.thrones.crm.CrmApiClient;
 import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.CrmRegistrationService;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.CrmRegistrationRow;
 import com.lektralabs.thrones.pallbearer.api.model.partial.RegisterUserPartial;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
 import jakarta.annotation.security.PermitAll;
@@ -23,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 
 import jakarta.ws.rs.HeaderParam;
-import com.lektralabs.thrones.pallbearer.jdbi.exception.RegistrationException;
 
 @Path("/api/sso")
 @Produces(MediaType.APPLICATION_JSON)
@@ -36,11 +37,10 @@ public class SsoResource {
     KeycloakProvider keycloakProvider;
     @Inject
     CrmApiClient crmApiClient;
-
     @Inject
     UserService userService;
-
-
+    @Inject
+    CrmRegistrationService crmRegistrationService;
 
     @Path("/login")
     @POST
@@ -63,7 +63,6 @@ public class SsoResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response logout(@HeaderParam("Authorization") String authorizationHeader) {
         try {
-            // Validate Authorization header
             if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
                 logger.warn("Invalid or missing Authorization header");
                 return Response.status(Response.Status.BAD_REQUEST)
@@ -76,8 +75,6 @@ public class SsoResource {
 
             String token = authorizationHeader.substring("Bearer ".length()).trim();
             logger.info("Initiating logout for user token");
-
-            // Perform logout
             keycloakProvider.logoutUser(token);
 
             return Response.ok()
@@ -106,21 +103,21 @@ public class SsoResource {
         }
     }
 
-
     @Path("/crm-login")
     @POST
     @PermitAll
     public Response crmLogin(LoginUser loginUser) {
         String username = loginUser.getUsername();
         String password = loginUser.getPassword();
-    
+
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new GenericApiResponse<>(400, "Username and password are required", null))
                     .build();
         }
-    
+
         try {
+            // Step 1: Validate credentials against CRM
             boolean crmValid = crmApiClient.validateUserCredentials(username, password);
             if (!crmValid) {
                 logger.warn("CRM credential validation failed for user: {}", username);
@@ -128,63 +125,101 @@ public class SsoResource {
                         .entity(new GenericApiResponse<>(401, "Invalid credentials", null))
                         .build();
             }
-    
-            UserRow userRow = userService.findByUsername(username)
-                    .orElseThrow(() -> new IllegalStateException("User not found in system after CRM validation: " + username));
-    
-            // FIX: treat placeholder UUID the same as null — user not yet in Keycloak
+
+            // Step 2: Check local t_crm_registration — confirms they were synced/webhoooked (i.e. registered in CRM)
+            CrmRegistrationRow registration = crmRegistrationService.findByUsername(username)
+                    .or(() -> crmRegistrationService.findByEmail(username))
+                    .orElse(null);
+
+            if (registration == null) {
+                logger.warn("CRM login: no registration record found for user: {}", username);
+                return Response.status(Response.Status.UNAUTHORIZED)
+                        .entity(new GenericApiResponse<>(401, "No registration found. Please complete your registration.", null))
+                        .build();
+            }
+
+            // Step 3: Enforce payment — only PAID, PARTIAL, TRIAL allowed
+            String paymentStatus = registration.getPaymentStatus().orElse(null);
+            boolean hasPaidAccess = paymentStatus != null && (
+                    paymentStatus.equalsIgnoreCase("PAID") ||
+                    paymentStatus.equalsIgnoreCase("PARTIAL") ||
+                    paymentStatus.equalsIgnoreCase("TRIAL") ||
+                    paymentStatus.equalsIgnoreCase("TRAIL")); // TRAIL is the stored value for trial
+
+            if (!hasPaidAccess) {
+                logger.warn("CRM login: payment required for user {} (status: {})", username, paymentStatus);
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity(new GenericApiResponse<>(403, "Payment required to access this app", null))
+                        .build();
+            }
+
+            // Step 4: From here use the canonical username/email from the registration row
+            String regUsername = registration.getUsername().orElse(username).toLowerCase();
+            String regEmail    = registration.getEmail().orElse(null);
+
+            // Step 5: Find or create local t_user
+            UserRow userRow = userService.findByUsername(regUsername)
+                    .or(() -> regEmail != null ? userService.findByEmail(regEmail) : java.util.Optional.empty())
+                    .orElse(null);
+
+            if (userRow == null) {
+                logger.info("CRM login: creating local user for {} (first login)", regUsername);
+                RegisterUserPartial createPartial = RegisterUserPartial.builder()
+                        .username(regUsername)
+                        .password(password)
+                        .email(regEmail)
+                        .firstName(registration.getFirstName().orElse(""))
+                        .lastName(registration.getLastName().orElse(""))
+                        .phoneNumber(registration.getPhoneNumber().orElse(""))
+                        .birthDate(0L)
+                        .role(registration.getRole().orElse("ATHLETE"))
+                        .build();
+                userRow = userService.registerUser(createPartial, false);
+            }
+
+            // Step 6: Keycloak provisioning
             java.util.UUID placeholderUuid = java.util.UUID.fromString("00000000-0000-0000-0000-000000000000");
             boolean isNewUser = (userRow.getKeycloakId() == null || placeholderUuid.equals(userRow.getKeycloakId()));
-    
+
+            RegisterUserPartial keycloakPartial = RegisterUserPartial.builder()
+                    .username(regUsername)
+                    .password(password)
+                    .email(userRow.getEmail())
+                    .firstName(registration.getFirstName().orElse(""))
+                    .lastName(registration.getLastName().orElse(""))
+                    .phoneNumber(registration.getPhoneNumber().orElse(""))
+                    .birthDate(0L)
+                    .role(registration.getRole().orElse("ATHLETE"))
+                    .build();
+
             if (isNewUser) {
-                logger.info("CRM login: provisioning new Keycloak user for {}", username);
-                RegisterUserPartial partial = RegisterUserPartial.builder()
-                        .username(username.toLowerCase())
-                        .password(password)
-                        .email(userRow.getEmail())
-                        .firstName("")
-                        .lastName("")
-                        .phoneNumber("")
-                        .birthDate(0L)
-                        .role("ATHLETE")
-                        .build();
-                // try {
-                //     userService.activateUser(partial);
-                // } catch (RegistrationException e) {
-                //     // User was already activated in a previous attempt — safe to continue
-                //     logger.warn("CRM login: activation skipped for {} (already activated): {}", username, e.getMessage());
-                // }
+                logger.info("CRM login: provisioning new Keycloak user for {}", regUsername);
                 try {
-                userService.activateUser(partial);
-                    } catch (Exception e) {
-                        logger.warn("CRM login: activation issue for {} (will attempt token anyway): {}", username, e.getMessage());
-                    }
+                    userService.activateUser(keycloakPartial);
+                } catch (Exception e) {
+                    logger.warn("CRM login: activation issue for {} (will attempt token anyway): {}", regUsername, e.getMessage());
+                }
             } else {
-                logger.info("CRM login: syncing Keycloak password for existing user {}", username);
+                logger.info("CRM login: syncing Keycloak password for existing user {}", regUsername);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
             }
-    
-            OpenIdResponse tokenResponse = keycloakProvider.getUserAccessToken(username, password);
-    
+
+            // Step 7: Get token using canonical regUsername
+            OpenIdResponse tokenResponse = keycloakProvider.getUserAccessToken(regUsername, password);
+
             java.util.Map<String, Object> responseBody = new java.util.HashMap<>();
             responseBody.put("access_token", tokenResponse.getAccessToken());
             responseBody.put("refresh_token", tokenResponse.getRefreshToken());
             responseBody.put("expires_in", tokenResponse.getExpiresIn());
             responseBody.put("token_type", tokenResponse.getTokenType());
-            responseBody.put("roles", tokenResponse.getRole());   // FIX: was "role", iOS expects "roles"
+            responseBody.put("roles", tokenResponse.getRole());
             responseBody.put("is_new_user", isNewUser);
             return Response.ok(responseBody).build();
-    
+
         } catch (IllegalArgumentException e) {
-            // Keycloak rejected the token request (required actions, bad password sync, etc.)
             logger.warn("CRM login Keycloak error for user {}: {}", username, e.getMessage());
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity(new GenericApiResponse<>(401, "Authentication failed: " + e.getMessage(), null))
-                    .build();
-        } catch (IllegalStateException e) {
-            logger.warn("CRM login user not found: {}", e.getMessage());
-            return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new GenericApiResponse<>(401, "User not registered in system", null))
                     .build();
         } catch (Exception e) {
             logger.error("CRM login failed for user: {}", username, e);

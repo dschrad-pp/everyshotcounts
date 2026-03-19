@@ -43,4 +43,13 @@ public class CrmRegistrationService {
             return row;
         }
     }
+    
+    public Optional<CrmRegistrationRow> findByUsername(String username) {
+    return crmRegistrationDao.findByUsername(username);
+    }
+
+    public Optional<CrmRegistrationRow> findByEmail(String email) {
+        return crmRegistrationDao.findByEmail(email);
+    }
+    
 }

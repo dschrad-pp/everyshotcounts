@@ -14,7 +14,8 @@ import java.util.concurrent.TimeUnit;
 public class CrmApiClient {
     private static final Logger logger = Logger.getLogger(CrmApiClient.class);
 
-    private static final String CRM_BASE_URL = "https://esc-crm-backend.onrender.com/api/v1";
+    // private static final String CRM_BASE_URL = "https://esc-crm-backend.onrender.com/api/v1";
+    private static final String CRM_BASE_URL =  "https://crm.everyshotcounts.ai/api/v1";
     private static final String AUTH_ENDPOINT = "/auth/applogin/";
     private static final String REGISTRATIONS_ENDPOINT = "/registrations/";
     @org.eclipse.microprofile.config.inject.ConfigProperty(name = "crm.ios.api.key")

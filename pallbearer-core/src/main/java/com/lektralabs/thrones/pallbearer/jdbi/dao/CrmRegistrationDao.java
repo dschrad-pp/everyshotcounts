@@ -25,4 +25,10 @@ public interface CrmRegistrationDao {
 
     @SqlUpdate("update")
     int update(@BindBean CrmRegistrationRow row);
+
+    @SqlQuery("selectByUsername")
+    Optional<CrmRegistrationRow> findByUsername(String username);
+
+    @SqlQuery("selectByEmail")
+    Optional<CrmRegistrationRow> findByEmail(String email);
 }
