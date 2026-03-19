@@ -154,8 +154,10 @@ public class SsoResource {
             }
 
             // Step 4: From here use the canonical username/email from the registration row
-            String regUsername = registration.getUsername().orElse(username).toLowerCase();
-            String regEmail    = registration.getEmail().orElse(null);
+            // String regUsername = registration.getUsername().orElse(username).toLowerCase();
+            // String regEmail    = registration.getEmail().orElse(null);
+            String regUsername = (registration.getUsername() != null ? registration.getUsername().orElse(username) : username).toLowerCase();
+            String regEmail    = registration.getEmail() != null ? registration.getEmail().orElse(null) : null;
 
             // Step 5: Find or create local t_user
             UserRow userRow = userService.findByUsername(regUsername)
@@ -168,11 +170,11 @@ public class SsoResource {
                         .username(regUsername)
                         .password(password)
                         .email(regEmail)
-                        .firstName(registration.getFirstName().orElse(""))
-                        .lastName(registration.getLastName().orElse(""))
-                        .phoneNumber(registration.getPhoneNumber().orElse(""))
+                        .firstName(registration.getFirstName() != null ? registration.getFirstName().orElse("") : "")
+                        .lastName(registration.getLastName() != null ? registration.getLastName().orElse("") : "")
+                        .phoneNumber(registration.getPhoneNumber() != null ? registration.getPhoneNumber().orElse("") : "")
+                        .role(registration.getRole() != null ? registration.getRole().orElse("ATHLETE") : "ATHLETE")
                         .birthDate(0L)
-                        .role(registration.getRole().orElse("ATHLETE"))
                         .build();
                 userRow = userService.registerUser(createPartial, false);
             }
@@ -185,11 +187,12 @@ public class SsoResource {
                     .username(regUsername)
                     .password(password)
                     .email(userRow.getEmail())
-                    .firstName(registration.getFirstName().orElse(""))
-                    .lastName(registration.getLastName().orElse(""))
-                    .phoneNumber(registration.getPhoneNumber().orElse(""))
+                    .firstName(registration.getFirstName() != null ? registration.getFirstName().orElse("") : "")
+                    .lastName(registration.getLastName() != null ? registration.getLastName().orElse("") : "")
+                    .phoneNumber(registration.getPhoneNumber() != null ? registration.getPhoneNumber().orElse("") : "")
+                    .role(registration.getRole() != null ? registration.getRole().orElse("ATHLETE") : "ATHLETE")
                     .birthDate(0L)
-                    .role(registration.getRole().orElse("ATHLETE"))
+                    
                     .build();
 
             if (isNewUser) {
