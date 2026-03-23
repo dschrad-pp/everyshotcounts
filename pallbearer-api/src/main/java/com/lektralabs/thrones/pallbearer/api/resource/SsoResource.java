@@ -26,6 +26,14 @@ import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 
 import jakarta.ws.rs.HeaderParam;
 
+
+import com.lektralabs.thrones.pallbearer.jdbi.service.CoachDrillService;
+import com.lektralabs.thrones.pallbearer.api.model.partial.generated.CoachPartial;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+
 @Path("/api/sso")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -41,6 +49,8 @@ public class SsoResource {
     UserService userService;
     @Inject
     CrmRegistrationService crmRegistrationService;
+    @Inject
+    CoachDrillService coachDrillService;
 
     @Path("/login")
     @POST
@@ -231,4 +241,72 @@ public class SsoResource {
                     .build();
         }
     }
+
+
+    @Path("/coach-login")
+@POST
+@PermitAll
+public Response coachLogin(LoginUser loginUser) {
+    String username = loginUser.getUsername();
+    String password = loginUser.getPassword();
+
+    if (username == null || username.isBlank() || password == null || password.isBlank()) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new GenericApiResponse<>(400, "Username and password are required", null))
+                .build();
+    }
+
+    try {
+        // Step 1: Find user and verify COACH role in one query
+        CoachPartial coach = coachDrillService.findCoachByUsername(username).orElse(null);
+
+        if (coach == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new GenericApiResponse<>(401, "Invalid credentials", null))
+                    .build();
+        }
+
+        // Step 2: Keycloak provisioning
+        UUID placeholderUuid = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        boolean isNewUser = (coach.getKeycloakId() == null || placeholderUuid.equals(coach.getKeycloakId()));
+
+        RegisterUserPartial keycloakPartial = RegisterUserPartial.builder()
+                .username(coach.getUsername())
+                .password(password)
+                .email(coach.getEmail())
+                .role("COACH")
+                .birthDate(0L)
+                .build();
+
+        if (isNewUser) {
+            try {
+                userService.activateUser(keycloakPartial);
+            } catch (Exception e) {
+                logger.warn("coach-login: activation issue for {} (will attempt token anyway): {}", username, e.getMessage());
+            }
+        } else {
+            keycloakProvider.changeUserPassword(coach.getKeycloakId(), password);
+        }
+
+        // Step 3: Return token
+        OpenIdResponse tokenResponse = keycloakProvider.getUserAccessToken(coach.getUsername(), password);
+
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("access_token", tokenResponse.getAccessToken());
+        responseBody.put("refresh_token", tokenResponse.getRefreshToken());
+        responseBody.put("expires_in", tokenResponse.getExpiresIn());
+        responseBody.put("token_type", tokenResponse.getTokenType());
+        responseBody.put("roles", tokenResponse.getRole());
+        responseBody.put("coach_id", coach.getId());
+        responseBody.put("first_name", coach.getFirstName());
+        responseBody.put("last_name", coach.getLastName());
+        return Response.ok(responseBody).build();
+
+    } catch (Exception e) {
+        logger.error("Coach login failed for user: {}", username, e);
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new GenericApiResponse<>(500, "Login failed", null))
+                .build();
+    }
+}
 }

@@ -576,7 +576,8 @@ public class UserService implements CoreConstants, UserPropertyConstants {
             
             logger.infof("Step 4: Assigning role to user");
             // Note: Using hardcoded "ATHLETE" role - consider using registerUserPartial.getRole() if roles match
-            String roleToAssign = "ATHLETE";
+            // String roleToAssign = "ATHLETE";
+            String roleToAssign = registerUserPartial.getRole() != null ? registerUserPartial.getRole() : "ATHLETE";
             logger.infof("Assigning role '%s' to user with Keycloak ID: %s", roleToAssign, findUserResponse.getId());
             assignKeycloakRole(findUserResponse.getId(), roleToAssign);
             logger.infof("Step 4 completed: Role assigned successfully");
