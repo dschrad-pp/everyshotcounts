@@ -70,7 +70,7 @@ public class AthleteDrillService {
 
     private AthleteDrillDetailDao athleteDrillDetailDao;
 
-    private static final String SERVER_BASE_URL = "http://103.99.202.227:8000";
+    private static final String SERVER_BASE_URL = "http://34.236.102.26:8000";
 
     @PostConstruct
     public void init() {
@@ -596,7 +596,7 @@ public class AthleteDrillService {
      * @param localPath Local file path (e.g.,
      *                  "/home/ankit/Downloads/thrones-development/media/Intermediate/intermediate_1_1/thumbnail.jpg")
      * @return URL that can be used to access the file (e.g.,
-     *         "http://103.99.202.227/api/media/gallery/thumbnail?path=Intermediate/intermediate_1_1/thumbnail.jpg")
+     *         "http://34.236.102.26/api/media/gallery/thumbnail?path=Intermediate/intermediate_1_1/thumbnail.jpg")
      */
     private String convertLocalPathToUrl(String localPath) {
         if (localPath == null || localPath.isEmpty()) {
