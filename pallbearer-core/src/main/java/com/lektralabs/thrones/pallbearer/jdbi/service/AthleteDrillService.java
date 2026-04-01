@@ -382,9 +382,9 @@ public class AthleteDrillService {
                 Optional<DrillItemRow> drillItemRow = drillItemService.findById(drillDetail.getDrillItemId());
 
                 if (drillItemRow.isPresent()) {
-                    DrillGroupRow drillGroupRow = drillGroupService
-                            .findById(drillItemRow.get().getDrillGroupId())
-                            .orElse(null);
+                    DrillGroupRow drillGroupRow = drillItemRow.get().getDrillGroupId() != null
+                            ? drillGroupService.findById(drillItemRow.get().getDrillGroupId()).orElse(null)
+                            : null;
 
                     String mediaThumbnailUrl = null;
                     if (drillItemRow.get().getMediaId().isPresent()) {
@@ -535,9 +535,9 @@ public class AthleteDrillService {
                     }
                 }
 
-                DrillGroupRow drillGroupRow = drillGroupService
-                        .findById(drillItemRow.get().getDrillGroupId())
-                        .orElse(null);
+                DrillGroupRow drillGroupRow = drillItemRow.get().getDrillGroupId() != null
+                        ? drillGroupService.findById(drillItemRow.get().getDrillGroupId()).orElse(null)
+                        : null;
 
                 AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
                         .drillItemId(drillItemRow.get().getId())
