@@ -6,6 +6,7 @@ import com.lektralabs.thrones.pallbearer.common.DrillStatusConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.AthleteDrillDetailDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillGroupRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillItemRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.MediaRow;
@@ -64,6 +65,9 @@ public class AthleteDrillService {
 
     @Inject
     DrillAttemptHistoryService drillAttemptHistoryService;
+
+    @Inject
+    DrillGroupService drillGroupService;
 
     @Inject
     MediaService mediaService;
@@ -378,6 +382,19 @@ public class AthleteDrillService {
                 Optional<DrillItemRow> drillItemRow = drillItemService.findById(drillDetail.getDrillItemId());
 
                 if (drillItemRow.isPresent()) {
+                    DrillGroupRow drillGroupRow = drillGroupService
+                            .findById(drillItemRow.get().getDrillGroupId())
+                            .orElse(null);
+
+                    String mediaThumbnailUrl = null;
+                    if (drillItemRow.get().getMediaId().isPresent()) {
+                        UUID mediaId = drillItemRow.get().getMediaId().get();
+                        mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+                        if (mediaThumbnailUrl == null) {
+                            mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
+                        }
+                    }
+
                     AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
                             .drillItemId(drillItemRow.get().getId())
                             .teamId(drillItemRow.get().getTeamId())
@@ -393,13 +410,10 @@ public class AthleteDrillService {
                             .allowRetryCode(drillItemRow.get().getAllowRetryCode())
                             .retryMax(drillItemRow.get().getRetryMax())
                             .timeLimitMs(drillItemRow.get().getTimeLimitMs())
-                            .orderIndex(drillItemRow.get().getOrderIndex())
-                            // FIX 5: If DrillItemRow doesn't have getDrillGroup(), remove or handle
-                            // For now, I'm commenting it out to fix compilation. You need to
-                            // determine if 'drillGroup' is needed in AthleteDrillDetail and where it comes
-                            // from.
-                            // .drillGroup(drillItemRow.get().getDrillGroup())
+                            .orderIndex(drillItemRow.get().getOrderIndex() != null ? drillItemRow.get().getOrderIndex() : -1)
+                            .drillGroup(drillGroupRow)
                             .drillDetail(Optional.of(drillDetail))
+                            .mediaThumbnail(mediaThumbnailUrl)
                             .isLocked(false)
                             .build();
                     allAthleteDrillDetails.add(athleteDrillDetail);
@@ -521,6 +535,10 @@ public class AthleteDrillService {
                     }
                 }
 
+                DrillGroupRow drillGroupRow = drillGroupService
+                        .findById(drillItemRow.get().getDrillGroupId())
+                        .orElse(null);
+
                 AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
                         .drillItemId(drillItemRow.get().getId())
                         .teamId(drillItemRow.get().getTeamId())
@@ -536,7 +554,8 @@ public class AthleteDrillService {
                         .allowRetryCode(drillItemRow.get().getAllowRetryCode())
                         .retryMax(drillItemRow.get().getRetryMax())
                         .timeLimitMs(drillItemRow.get().getTimeLimitMs())
-                        .orderIndex(drillItemRow.get().getOrderIndex())
+                        .orderIndex(drillItemRow.get().getOrderIndex() != null ? drillItemRow.get().getOrderIndex() : -1)
+                        .drillGroup(drillGroupRow)
                         .drillDetail(Optional.of(drillDetail))
                         .mediaThumbnail(mediaThumbnailUrl)
                         .isLocked(false)
