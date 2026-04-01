@@ -83,4 +83,23 @@ public class CoachResource {
                 .build();
     }
 
+    @GET
+    @Path("/{coachId}/athlete/{athleteId}/curriculum")
+    @RolesAllowed({ "ADMIN", "COACH" })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getFullCurriculumForAthleteUnderCoach(@PathParam("coachId") UUID coachId,
+            @PathParam("athleteId") UUID athleteId) {
+        logger.infof("Fetching full curriculum for athlete ID: %s under coach ID: %s", athleteId, coachId);
+
+        List<AthleteDrillDetail> curriculum = athleteDrillService
+                .findFullCurriculumForAthleteUnderCoach(coachId, athleteId);
+
+        return Response.ok(
+                new GenericApiResponse<>(200,
+                        curriculum.isEmpty() ? "No curriculum found for this athlete"
+                                : "Successfully fetched full curriculum for athlete",
+                        curriculum))
+                .build();
+    }
+
 }

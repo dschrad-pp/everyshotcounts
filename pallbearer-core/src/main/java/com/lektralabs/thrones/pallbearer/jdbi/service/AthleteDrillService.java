@@ -2,6 +2,7 @@ package com.lektralabs.thrones.pallbearer.jdbi.service;
 
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.DrillPartial;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
+import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
 import com.lektralabs.thrones.pallbearer.common.DrillStatusConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.AthleteDrillDetailDao;
@@ -896,6 +897,53 @@ public class AthleteDrillService {
         } catch (Exception e) {
             return localPath; // Return original path if we can't convert it
         }
+    }
+
+    /**
+     * Find the full drill curriculum for the specified athlete across all skill
+     * groups, scoped to a coach. Returns every drill item regardless of attempt
+     * status. If the athlete has attempted a drill, drillDetail is populated with
+     * the full attempt history. If the athlete has not attempted a drill,
+     * drillDetail is null in the response.
+     *
+     * @param coachId       Coach user ID — athlete must be assigned to this coach
+     * @param athleteUserId Athlete user ID
+     * @return All drill items across Beginner, Intermediate, Advanced, and Elite
+     *         groups with attempt data where available
+     */
+    public List<AthleteDrillDetail> findFullCurriculumForAthleteUnderCoach(UUID coachId, UUID athleteUserId) {
+        List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
+        boolean isAssigned = assignedAthletes.stream()
+                .anyMatch(a -> a.getUserId().equals(athleteUserId));
+
+        if (!isAssigned) {
+            logger.warn("Athlete {} is not assigned to coach {}", athleteUserId, coachId);
+            return Collections.emptyList();
+        }
+
+        FindOptions findOptions = new FindOptions();
+        List<AthleteDrillDetail> allDrills = new ArrayList<>();
+
+        List<UUID> groupIds = List.of(
+                DrillGroupConstants.BEGINNER_GROUP_ID,
+                DrillGroupConstants.INTERMEDIATE_GROUP_ID,
+                DrillGroupConstants.ADVANCE_GROUP_ID,
+                DrillGroupConstants.ELITE_GROUP_ID);
+
+        for (UUID groupId : groupIds) {
+            List<AthleteDrillDetail> groupDrills = findWithAthleteAndGroup(athleteUserId, groupId, findOptions);
+            for (AthleteDrillDetail detail : groupDrills) {
+                if (detail.getDrillDetail().isPresent()) {
+                    DrillDetail dd = detail.getDrillDetail().get();
+                    if (DrillStatusConstants.NOT_ATTEMPTED.equals(dd.getDrillStatus())) {
+                        detail.setDrillDetail(Optional.empty());
+                    }
+                }
+            }
+            allDrills.addAll(groupDrills);
+        }
+
+        return allDrills;
     }
 
     /**
