@@ -63,7 +63,7 @@ if [[ $LOGDEBUG -eq 1 ]]; then
   echo "Debug enabled"
   if [[ -d "$PALLBEARER_API" ]]; then
     cd "$PALLBEARER_API"
-    quarkus dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.log.level=DEBUG
+    quarkus dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8000 -Dquarkus.log.level=DEBUG
   else
     echo "Error: $PALLBEARER_API does not exist"
     exit 1
@@ -72,7 +72,7 @@ else
   echo "Debug not enabled"
   if [[ -d "$PALLBEARER_API" ]]; then
     cd "$PALLBEARER_API"
-    quarkus dev -Dquarkus.http.host=0.0.0.0
+    quarkus dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8000
   else
     echo "Error: $PALLBEARER_API does not exist"
     exit 1

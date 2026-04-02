@@ -68,6 +68,26 @@ insert() ::= <<
      )
 >>
 
+
+selectByUsername() ::= <<
+     SELECT registration_id, user_id, username, email, first_name, last_name,
+            phone AS phone_number, role, team_id, payment_status, last_updated, created_at, updated_at
+       FROM t_crm_registration
+      WHERE lower(username) = lower(:username)
+      ORDER BY last_updated DESC
+      LIMIT 1
+>>
+
+selectByEmail() ::= <<
+     SELECT registration_id, user_id, username, email, first_name, last_name,
+            phone AS phone_number, role, team_id, payment_status, last_updated, created_at, updated_at
+       FROM t_crm_registration
+      WHERE lower(email) = lower(:email)
+      ORDER BY last_updated DESC
+      LIMIT 1
+>>
+
+
 update() ::= <<
      UPDATE t_crm_registration
         SET user_id = :userId

@@ -14,10 +14,12 @@ import java.util.concurrent.TimeUnit;
 public class CrmApiClient {
     private static final Logger logger = Logger.getLogger(CrmApiClient.class);
 
-    private static final String CRM_BASE_URL = "https://esc-crm-backend.onrender.com/api/v1";
+    // private static final String CRM_BASE_URL = "https://esc-crm-backend.onrender.com/api/v1";
+    private static final String CRM_BASE_URL =  "https://crm.everyshotcounts.ai/api/v1";
     private static final String AUTH_ENDPOINT = "/auth/applogin/";
     private static final String REGISTRATIONS_ENDPOINT = "/registrations/";
-
+    @org.eclipse.microprofile.config.inject.ConfigProperty(name = "crm.ios.api.key")
+    String crmIosApiKey;
     private final OkHttpClient client;
     private final ObjectMapper objectMapper;
     private String accessToken;
@@ -51,10 +53,10 @@ public class CrmApiClient {
         String password = System.getenv("CRM_PASSWORD");
         
         if (username == null) {
-            username = "athlete";
+            username = "rojan";
         }
         if (password == null) {
-            password = "athlete1234";
+            password = "rojan1234";
         }
 
         RequestBody body = RequestBody.create(
@@ -171,4 +173,63 @@ public class CrmApiClient {
             throw new IOException("Unexpected response format: " + responseBody);
         }
     }
+
+    ///**
+     //* Validate user credentials against CRM API
+     //*/
+    /**
+ * Validate user credentials against CRM /api/auth/validate-credentials endpoint
+ */
+
+public boolean validateUserCredentials(String username, String password) throws IOException {
+    // Updated endpoint path
+    String url = "https://crm.everyshotcounts.ai/api/v1/auth/validate-credentials/";
+    
+    // Get CRM API key from environment variable
+    // String crmApiKey = System.getenv("CRM_IOS_API_KEY");
+    // if (crmApiKey == null || crmApiKey.isBlank()) {
+    //     logger.error("CRM_IOS_API_KEY environment variable is not set");
+    //     throw new IOException("CRM API key not configured");
+    // }
+    // With:
+if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
+    logger.error("CRM iOS API key is not configured");
+    throw new IOException("CRM API key not configured");
+}
+
+    // Build request body
+    RequestBody body = RequestBody.create(
+        String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password),
+        MediaType.parse("application/json")
+    );
+
+    Request request = new Request.Builder()
+        .url(url)
+        .post(body)
+        // .addHeader("Authorization", "Bearer " + crmApiKey)
+        .addHeader("Authorization", "Bearer " + crmIosApiKey)
+        .addHeader("Content-Type", "application/json")
+        .addHeader("Accept", "application/json")
+        .build();
+
+    logger.info("Validating CRM credentials for user: " + username);
+    try (Response response = client.newCall(request).execute()) {
+        if (response.code() == 200) {
+            // Optionally parse and store the user data from response
+            String responseBody = response.body().string();
+            logger.info("CRM validation successful for user: " + username);
+            return true;
+        } else if (response.code() == 401 || response.code() == 400) {
+            logger.info("CRM validation failed for user: " + username);
+            return false;
+        } else {
+            String errorBody = response.body() != null ? response.body().string() : "No error body";
+            logger.error("Unexpected CRM response. Status: " + response.code() + ", Error: " + errorBody);
+            throw new IOException("Unexpected CRM response. Status: " + response.code());
+        }
+    } catch (java.net.SocketTimeoutException e) {
+        logger.error("Timeout validating CRM credentials", e);
+        throw new IOException("Timeout connecting to CRM API", e);
+    }
+}
 }

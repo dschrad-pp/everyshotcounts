@@ -2,10 +2,12 @@ package com.lektralabs.thrones.pallbearer.jdbi.service;
 
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.DrillPartial;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
+import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
 import com.lektralabs.thrones.pallbearer.common.DrillStatusConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.AthleteDrillDetailDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillGroupRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillItemRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.MediaRow;
@@ -64,6 +66,9 @@ public class AthleteDrillService {
 
     @Inject
     DrillAttemptHistoryService drillAttemptHistoryService;
+
+    @Inject
+    DrillGroupService drillGroupService;
 
     @Inject
     MediaService mediaService;
@@ -378,6 +383,19 @@ public class AthleteDrillService {
                 Optional<DrillItemRow> drillItemRow = drillItemService.findById(drillDetail.getDrillItemId());
 
                 if (drillItemRow.isPresent()) {
+                    DrillGroupRow drillGroupRow = drillItemRow.get().getDrillGroupId() != null
+                            ? drillGroupService.findById(drillItemRow.get().getDrillGroupId()).orElse(null)
+                            : null;
+
+                    String mediaThumbnailUrl = null;
+                    if (drillItemRow.get().getMediaId().isPresent()) {
+                        UUID mediaId = drillItemRow.get().getMediaId().get();
+                        mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+                        if (mediaThumbnailUrl == null) {
+                            mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
+                        }
+                    }
+
                     AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
                             .drillItemId(drillItemRow.get().getId())
                             .teamId(drillItemRow.get().getTeamId())
@@ -393,13 +411,10 @@ public class AthleteDrillService {
                             .allowRetryCode(drillItemRow.get().getAllowRetryCode())
                             .retryMax(drillItemRow.get().getRetryMax())
                             .timeLimitMs(drillItemRow.get().getTimeLimitMs())
-                            .orderIndex(drillItemRow.get().getOrderIndex())
-                            // FIX 5: If DrillItemRow doesn't have getDrillGroup(), remove or handle
-                            // For now, I'm commenting it out to fix compilation. You need to
-                            // determine if 'drillGroup' is needed in AthleteDrillDetail and where it comes
-                            // from.
-                            // .drillGroup(drillItemRow.get().getDrillGroup())
+                            .orderIndex(drillItemRow.get().getOrderIndex() != null ? drillItemRow.get().getOrderIndex() : -1)
+                            .drillGroup(drillGroupRow)
                             .drillDetail(Optional.of(drillDetail))
+                            .mediaThumbnail(mediaThumbnailUrl)
                             .isLocked(false)
                             .build();
                     allAthleteDrillDetails.add(athleteDrillDetail);
@@ -521,6 +536,10 @@ public class AthleteDrillService {
                     }
                 }
 
+                DrillGroupRow drillGroupRow = drillItemRow.get().getDrillGroupId() != null
+                        ? drillGroupService.findById(drillItemRow.get().getDrillGroupId()).orElse(null)
+                        : null;
+
                 AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
                         .drillItemId(drillItemRow.get().getId())
                         .teamId(drillItemRow.get().getTeamId())
@@ -536,7 +555,8 @@ public class AthleteDrillService {
                         .allowRetryCode(drillItemRow.get().getAllowRetryCode())
                         .retryMax(drillItemRow.get().getRetryMax())
                         .timeLimitMs(drillItemRow.get().getTimeLimitMs())
-                        .orderIndex(drillItemRow.get().getOrderIndex())
+                        .orderIndex(drillItemRow.get().getOrderIndex() != null ? drillItemRow.get().getOrderIndex() : -1)
+                        .drillGroup(drillGroupRow)
                         .drillDetail(Optional.of(drillDetail))
                         .mediaThumbnail(mediaThumbnailUrl)
                         .isLocked(false)
@@ -877,6 +897,53 @@ public class AthleteDrillService {
         } catch (Exception e) {
             return localPath; // Return original path if we can't convert it
         }
+    }
+
+    /**
+     * Find the full drill curriculum for the specified athlete across all skill
+     * groups, scoped to a coach. Returns every drill item regardless of attempt
+     * status. If the athlete has attempted a drill, drillDetail is populated with
+     * the full attempt history. If the athlete has not attempted a drill,
+     * drillDetail is null in the response.
+     *
+     * @param coachId       Coach user ID — athlete must be assigned to this coach
+     * @param athleteUserId Athlete user ID
+     * @return All drill items across Beginner, Intermediate, Advanced, and Elite
+     *         groups with attempt data where available
+     */
+    public List<AthleteDrillDetail> findFullCurriculumForAthleteUnderCoach(UUID coachId, UUID athleteUserId) {
+        List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
+        boolean isAssigned = assignedAthletes.stream()
+                .anyMatch(a -> a.getUserId().equals(athleteUserId));
+
+        if (!isAssigned) {
+            logger.warn("Athlete {} is not assigned to coach {}", athleteUserId, coachId);
+            return Collections.emptyList();
+        }
+
+        FindOptions findOptions = new FindOptions();
+        List<AthleteDrillDetail> allDrills = new ArrayList<>();
+
+        List<UUID> groupIds = List.of(
+                DrillGroupConstants.BEGINNER_GROUP_ID,
+                DrillGroupConstants.INTERMEDIATE_GROUP_ID,
+                DrillGroupConstants.ADVANCE_GROUP_ID,
+                DrillGroupConstants.ELITE_GROUP_ID);
+
+        for (UUID groupId : groupIds) {
+            List<AthleteDrillDetail> groupDrills = findWithAthleteAndGroup(athleteUserId, groupId, findOptions);
+            for (AthleteDrillDetail detail : groupDrills) {
+                if (detail.getDrillDetail().isPresent()) {
+                    DrillDetail dd = detail.getDrillDetail().get();
+                    if (DrillStatusConstants.NOT_ATTEMPTED.equals(dd.getDrillStatus())) {
+                        detail.setDrillDetail(Optional.empty());
+                    }
+                }
+            }
+            allDrills.addAll(groupDrills);
+        }
+
+        return allDrills;
     }
 
     /**
