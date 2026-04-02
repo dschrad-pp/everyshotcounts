@@ -15,7 +15,9 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +43,12 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
     @Inject
     ThumbnailGenerationService thumbnailGenerationService;
 
+    @Inject
+    MediaService mediaService;
+
+    @Inject
+    GalleryMediaStorageService galleryMediaStorageService;
+
     public byte[] getDrillItemVideo(UUID drillItemId) {
         Optional<DrillItemRow> maybeDrillItem = drillItemService.findById(drillItemId);
 
@@ -56,12 +64,12 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
         Optional<UUID> maybeMediaId = drillItemRow.getMediaId();
         if (maybeMediaId.isPresent()) {
             UUID mediaId = maybeMediaId.get();
-            String path = galleryMediaStore.getGalleryInputPath(mediaId);
-            if (path.isEmpty()) {
-                return new byte[]{};
-            } else {
-                return getMediaBytes(path);
+            Optional<String> maybeRemoteUrl = findRemoteMediaUrl(mediaId);
+            if (maybeRemoteUrl.isPresent()) {
+                return getMediaBytesFromUrl(maybeRemoteUrl.get());
             }
+            String path = galleryMediaStore.getGalleryInputPath(mediaId);
+            return path.isEmpty() ? new byte[]{} : getMediaBytes(path);
         } else {
             return new byte[]{};
         }
@@ -85,13 +93,13 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
             logger.info("Media id not present");
             UUID mediaId = maybeMediaId.get();
             logger.info("fetching media for id : " + mediaId);
+            Optional<String> maybeRemoteUrl = findRemoteMediaUrl(mediaId);
+            if (maybeRemoteUrl.isPresent()) {
+                return getMediaBytesFromUrl(maybeRemoteUrl.get());
+            }
             String path = galleryMediaStore.getGalleryInputPath(mediaId);
             logger.info(String.format("media stored at path : %s", path));
-            if (path.isEmpty()) {
-                return new byte[]{};
-            } else {
-                return getMediaBytes(path);
-            }
+            return path.isEmpty() ? new byte[]{} : getMediaBytes(path);
         } else {
             return new byte[]{};
         }
@@ -117,15 +125,18 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
     }
 
     private byte[] getDrillItemStillFrame(DrillItemRow drillItemRow) {
+        if (drillItemRow.getMediaThumbnail().isPresent() && isRemoteUrl(drillItemRow.getMediaThumbnail().get())) {
+            return getMediaBytesFromUrl(drillItemRow.getMediaThumbnail().get());
+        }
         Optional<UUID> maybeMediaId = drillItemRow.getMediaId();
         if (maybeMediaId.isPresent()) {
             UUID mediaId = maybeMediaId.get();
-            String path = galleryMediaStore.getGalleryStillFramePath(mediaId);
-            if (path.isEmpty()) {
-                return new byte[]{};
-            } else {
-                return getMediaBytes(path);
+            Optional<String> maybeRemoteUrl = findRemoteThumbnailUrl(mediaId);
+            if (maybeRemoteUrl.isPresent()) {
+                return getMediaBytesFromUrl(maybeRemoteUrl.get());
             }
+            String path = galleryMediaStore.getGalleryStillFramePath(mediaId);
+            return path.isEmpty() ? new byte[]{} : getMediaBytes(path);
         } else {
             return new byte[]{};
         }
@@ -154,12 +165,12 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
         Optional<UUID> maybeMediaId = drillRow.getMediaId();
         if (maybeMediaId.isPresent()) {
             UUID mediaId = maybeMediaId.get();
-            String path = galleryMediaStore.getGalleryStillFramePath(mediaId);
-            if (path.isEmpty()) {
-                return new byte[]{};
-            } else {
-                return getMediaBytes(path);
+            Optional<String> maybeRemoteUrl = findRemoteThumbnailUrl(mediaId);
+            if (maybeRemoteUrl.isPresent()) {
+                return getMediaBytesFromUrl(maybeRemoteUrl.get());
             }
+            String path = galleryMediaStore.getGalleryStillFramePath(mediaId);
+            return path.isEmpty() ? new byte[]{} : getMediaBytes(path);
         } else {
             return new byte[]{};
         }
@@ -220,6 +231,7 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
 
             // Generate thumbnail/still frame after video is saved
             generateThumbnailForMedia(mediaId, videoFile);
+            syncDrillItemMediaToStorage(drillItemRow.getId(), mediaId);
 
             return Optional.of(mediaId);
         }
@@ -268,6 +280,7 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
 
         // Generate thumbnail/still frame after video is saved
         generateThumbnailForMedia(mediaId, videoFile);
+        syncMediaToStorage(mediaId);
 
         return Optional.of(mediaId);
     }
@@ -366,6 +379,14 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
      * @return Thumbnail URL or null if thumbnail cannot be generated/accessed
      */
     public String getThumbnailUrl(UUID mediaId, String serverBaseUrl) {
+        if (galleryMediaStorageService.isS3Enabled()) {
+            Optional<String> maybeContentUrl = findById(mediaId)
+                    .flatMap(mediaRow -> mediaRow.getContentUrl());
+            if (maybeContentUrl.isPresent() && isRemoteUrl(maybeContentUrl.get())) {
+                return galleryMediaStorageService.getStoredThumbnailUrl(mediaId);
+            }
+        }
+
         // First ensure thumbnail exists
         boolean thumbnailExists = ensureThumbnailExists(mediaId);
         
@@ -467,6 +488,38 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
             
         } catch (Exception e) {
             logger.errorf(e, "Error generating thumbnail for mediaId: %s", mediaId);
+        }
+    }
+
+    private void syncDrillItemMediaToStorage(UUID drillItemId, UUID mediaId) {
+        galleryMediaStorageService.syncDrillItemMediaToStorage(drillItemId, mediaId);
+    }
+
+    private void syncMediaToStorage(UUID mediaId) {
+        galleryMediaStorageService.syncDrillMediaToStorage(mediaId);
+    }
+
+    private boolean isRemoteUrl(String value) {
+        return value != null && (value.startsWith("http://") || value.startsWith("https://"));
+    }
+
+    private Optional<String> findRemoteMediaUrl(UUID mediaId) {
+        return findById(mediaId)
+                .flatMap(mediaRow -> mediaRow.getContentUrl())
+                .filter(this::isRemoteUrl);
+    }
+
+    private Optional<String> findRemoteThumbnailUrl(UUID mediaId) {
+        return findRemoteMediaUrl(mediaId)
+                .map(ignored -> galleryMediaStorageService.getStoredThumbnailUrl(mediaId));
+    }
+
+    private byte[] getMediaBytesFromUrl(String remoteUrl) {
+        try (InputStream inputStream = URI.create(remoteUrl).toURL().openStream()) {
+            return inputStream.readAllBytes();
+        } catch (IOException e) {
+            logger.errorf(e, "Failed to read remote media from %s", remoteUrl);
+            return new byte[]{};
         }
     }
 }

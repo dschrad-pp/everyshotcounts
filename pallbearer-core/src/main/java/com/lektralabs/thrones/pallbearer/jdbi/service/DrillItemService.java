@@ -47,6 +47,11 @@ public class DrillItemService extends DrillItemBaseService {
         return drillItemDao.updateMediaId(drillItemId, mediaId);
     }
 
+    @Transactional
+    public int updateMediaThumbnail(UUID drillItemId, String mediaThumbnail) {
+        return drillItemDao.updateMediaThumbnail(drillItemId, mediaThumbnail, System.currentTimeMillis());
+    }
+
     public List<List<DrillItemDetail>> getAllDrills() {
         Map<String, List<DrillItemDetail>> groupedDrills = getAllDrillItemsGroupedByDrillGroup();
         return groupedDrills.values().stream()
@@ -270,4 +275,3 @@ public class DrillItemService extends DrillItemBaseService {
         }
     }
 }
-
