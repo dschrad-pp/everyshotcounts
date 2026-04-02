@@ -21,6 +21,7 @@ while getopts ":h?rd" opt; do
 done
 
 # Absolute paths
+THRONES_HOME="/home/ankit/Downloads/thrones-development"
 PALLBEARER_HOME="/home/ankit/Downloads/thrones-development/pallbearer"
 PALLBEARER_API="$PALLBEARER_HOME/pallbearer-api"
 
@@ -29,6 +30,21 @@ export PATH="$HOME/.sdkman/candidates/quarkus/current/bin:$HOME/.sdkman/candidat
 
 # Optional: Java Home
 export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+
+load_exports() {
+  local env_file="$1"
+  if [[ -f "$env_file" ]]; then
+    # Load only plain export lines so direnv-specific directives like `use` do not fail in bash.
+    set -a
+    # shellcheck disable=SC1090
+    source <(grep '^export ' "$env_file")
+    set +a
+    echo "Loaded exports from $env_file"
+  fi
+}
+
+load_exports "$THRONES_HOME/.envrc"
+load_exports "$PALLBEARER_HOME/.envrc"
 
 # Recompile if requested
 if [[ $RECOMPILE -eq 1 ]]; then

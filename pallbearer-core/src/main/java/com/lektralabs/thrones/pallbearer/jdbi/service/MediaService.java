@@ -41,6 +41,11 @@ public class MediaService extends MediaBaseService {
         return mediaDao.updateMediaStatus(mediaId, mediaStatusCode);
     }
 
+    @Transactional
+    public int updateContentUrl(UUID mediaId, String contentUrl) {
+        return mediaDao.updateContentUrl(mediaId, contentUrl, System.currentTimeMillis());
+    }
+
     /**
      * Converts Google Drive file URLs to direct download URLs for all media items.
      * Converts from: https://drive.google.com/file/d/{id}/view (with optional query params)
