@@ -127,3 +127,4 @@ media/
 *.md
 !README.md
 !**/README.md
+pallbearer-api/src/main/resources/application.properties

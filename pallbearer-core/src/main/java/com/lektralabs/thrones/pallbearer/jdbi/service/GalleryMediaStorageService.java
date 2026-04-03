@@ -1,5 +1,7 @@
 package com.lektralabs.thrones.pallbearer.jdbi.service;
 
+import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.MediaRow;
 import com.lektralabs.thrones.pallbearer.media.common.MediaConstants;
 import com.lektralabs.thrones.pallbearer.media.pipeline.everyshotcounts.GalleryMediaStore;
 import com.lektralabs.thrones.pallbearer.media.storage.S3StorageService;
@@ -12,6 +14,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -19,6 +24,18 @@ import java.util.stream.Stream;
 public class GalleryMediaStorageService {
 
     private static final Logger logger = Logger.getLogger(GalleryMediaStorageService.class);
+
+    /**
+     * S3 key layout (UTC calendar date from media
+     * {@link MediaRow#getCreationDate()} — not “today” — so keys stay
+     * stable if sync runs again later):
+     * {@code gallery/<dd-MM-yyyy>_<sanitized-username>_<createdById>/<mediaId>/<files under gallery folder>}.
+     */
+    private static final String GALLERY_S3_PREFIX = "gallery";
+
+    private static final DateTimeFormatter GALLERY_DATE_FOLDER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+    private static final int USERNAME_SEGMENT_MAX_LEN = 96;
 
     @Inject
     GalleryMediaStore galleryMediaStore;
@@ -30,6 +47,9 @@ public class GalleryMediaStorageService {
     DrillItemService drillItemService;
 
     @Inject
+    UserService userService;
+
+    @Inject
     S3StorageService s3StorageService;
 
     public boolean isS3Enabled() {
@@ -37,8 +57,10 @@ public class GalleryMediaStorageService {
     }
 
     public String getStoredThumbnailUrl(UUID mediaId) {
+        MediaRow media = requireMediaRow(mediaId);
+        String usernameSegment = requireUsernameSegment(media.getCreatedById());
         File localFile = new File(galleryMediaStore.getGalleryMediaPath(mediaId), MediaConstants.STILL_FRAME_FILE_NAME);
-        return s3StorageService.getObjectUrl(getStorageKey(localFile));
+        return s3StorageService.getObjectUrl(getStorageKey(localFile, media, usernameSegment));
     }
 
     public void syncDrillItemMediaToStorage(UUID drillItemId, UUID mediaId) {
@@ -73,11 +95,14 @@ public class GalleryMediaStorageService {
                     + " path=" + mediaFolder.getAbsolutePath());
         }
 
+        MediaRow media = requireMediaRow(mediaId);
+        String usernameSegment = requireUsernameSegment(media.getCreatedById());
+
         try (Stream<Path> files = Files.walk(mediaFolder.toPath())) {
             files.filter(Files::isRegularFile)
                     .forEach(path -> s3StorageService.uploadFile(
                             path.toFile(),
-                            getStorageKey(path.toFile()),
+                            getStorageKey(path.toFile(), media, usernameSegment),
                             detectContentType(path.toFile())));
         } catch (IOException e) {
             throw new IllegalStateException("Failed uploading gallery folder to S3 for mediaId=" + mediaId, e);
@@ -86,7 +111,7 @@ public class GalleryMediaStorageService {
         String videoUrl = null;
         File inputVideoFile = new File(galleryMediaStore.getGalleryInputPath(mediaId));
         if (inputVideoFile.exists()) {
-            videoUrl = s3StorageService.getObjectUrl(getStorageKey(inputVideoFile));
+            videoUrl = s3StorageService.getObjectUrl(getStorageKey(inputVideoFile, media, usernameSegment));
             mediaService.updateContentUrl(mediaId, videoUrl);
         } else {
             logger.infof("Skipping content_url update for mediaId=%s because input video is not ready yet at %s",
@@ -96,7 +121,7 @@ public class GalleryMediaStorageService {
         String thumbnailUrl = null;
         File stillFrameFile = new File(galleryMediaStore.getGalleryStillFramePath(mediaId));
         if (stillFrameFile.exists()) {
-            thumbnailUrl = s3StorageService.getObjectUrl(getStorageKey(stillFrameFile));
+            thumbnailUrl = s3StorageService.getObjectUrl(getStorageKey(stillFrameFile, media, usernameSegment));
         } else {
             logger.warnf("Still frame not found for mediaId=%s, skipping S3 thumbnail url update", mediaId);
         }
@@ -115,7 +140,8 @@ public class GalleryMediaStorageService {
         }
 
         if (!isReadyForCleanup(mediaId, streamingExpected)) {
-            logger.infof("Skipping local gallery cleanup for mediaId=%s because processing is not finished yet", mediaId);
+            logger.infof("Skipping local gallery cleanup for mediaId=%s because processing is not finished yet",
+                    mediaId);
             return;
         }
 
@@ -161,15 +187,83 @@ public class GalleryMediaStorageService {
         }
     }
 
-    private String getStorageKey(File file) {
+    private MediaRow requireMediaRow(UUID mediaId) {
+        MediaRow media = mediaService.findById(mediaId)
+                .orElseThrow(() -> new IllegalStateException("Media not found for mediaId=" + mediaId));
+        if (media.getCreatedById() == null) {
+            throw new IllegalStateException("Media missing createdById for mediaId=" + mediaId);
+        }
+        return media;
+    }
+
+    private String requireUsernameSegment(UUID userId) {
+        UserRow user = userService.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found for gallery S3 prefix userId=" + userId));
+        String segment = sanitizeUsernameForS3Path(user.getUsername());
+        if (segment.isEmpty()) {
+            segment = "user";
+        }
+        return segment;
+    }
+
+    /**
+     * Safe single path segment for S3: no slashes, control chars, or other characters that break keys or URLs.
+     */
+    static String sanitizeUsernameForS3Path(String username) {
+        if (username == null || username.isBlank()) {
+            return "";
+        }
+        String trimmed = username.trim();
+        StringBuilder sb = new StringBuilder(Math.min(trimmed.length(), USERNAME_SEGMENT_MAX_LEN));
+        boolean lastUnderscore = false;
+        for (int i = 0; i < trimmed.length() && sb.length() < USERNAME_SEGMENT_MAX_LEN; i++) {
+            char c = trimmed.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_') {
+                sb.append(c);
+                lastUnderscore = false;
+            } else if (!Character.isISOControl(c)) {
+                if (!lastUnderscore) {
+                    sb.append('_');
+                    lastUnderscore = true;
+                }
+            }
+        }
+        String s = sb.toString();
+        while (s.endsWith("_") || s.endsWith(".")) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    /** UTC calendar date for S3 prefixes, formatted {@code dd-MM-yyyy}. */
+    private static String galleryDateFolder(Long creationDateEpochMillis) {
+        long millis = creationDateEpochMillis != null ? creationDateEpochMillis : System.currentTimeMillis();
+        return Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().format(GALLERY_DATE_FOLDER);
+    }
+
+    /**
+     * One “folder” segment for the owner: {@code <dd-MM-yyyy>_<username>_<userId>}, then {@code mediaId/} as before.
+     */
+    private String getStorageKey(File file, MediaRow media, String usernameSegment) {
+        UUID mediaId = media.getId();
+        UUID userId = media.getCreatedById();
+        String datePart = galleryDateFolder(media.getCreationDate());
+        String ownerSegment = datePart + "_" + usernameSegment + "_" + userId;
+
         Path mediaRoot = Path.of(galleryMediaStore.getMediaStorePath()).toAbsolutePath().normalize();
+        Path galleryBase = Path.of(galleryMediaStore.getGalleryMediaPath(mediaId)).toAbsolutePath().normalize();
         Path filePath = file.toPath().toAbsolutePath().normalize();
 
         if (!filePath.startsWith(mediaRoot)) {
             throw new IllegalArgumentException("File is outside media root: " + filePath);
         }
+        if (!filePath.startsWith(galleryBase)) {
+            throw new IllegalArgumentException(
+                    "File is outside gallery media folder for mediaId=" + mediaId + ": " + filePath);
+        }
 
-        return mediaRoot.relativize(filePath).toString().replace(File.separatorChar, '/');
+        String relative = galleryBase.relativize(filePath).toString().replace(File.separatorChar, '/');
+        return GALLERY_S3_PREFIX + "/" + ownerSegment + "/" + mediaId + "/" + relative;
     }
 
     private String detectContentType(File file) {
