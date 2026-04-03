@@ -128,3 +128,4 @@ media/
 !README.md
 !**/README.md
 pallbearer/src/main/scripts/kstart.sh
+pallbearer-api/src/main/resources/application.properties
