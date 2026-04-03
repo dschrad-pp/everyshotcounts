@@ -127,4 +127,6 @@ media/
 *.md
 !README.md
 !**/README.md
+# Local overrides — not committed
+src/main/scripts/kstart.sh
 pallbearer-api/src/main/resources/application.properties
