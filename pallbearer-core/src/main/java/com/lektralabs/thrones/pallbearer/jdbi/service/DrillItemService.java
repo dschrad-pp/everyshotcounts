@@ -154,12 +154,12 @@ public class DrillItemService extends DrillItemBaseService {
             try {
                 String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
                         .replace("+", "%20");
-                String url = String.format("http://103.99.202.227:8000/api/media/gallery/thumbnail?path=%s", encodedPath);
+                String url = String.format("http://34.236.102.26:8000/api/media/gallery/thumbnail?path=%s", encodedPath);
                 logger.debug("Converted local path " + localPath + " to URL: " + url);
                 return url;
             } catch (Exception e) {
                 logger.warn("Error encoding path: " + relativePath, e);
-                return String.format("http://103.99.202.227:8000/api/media/gallery/thumbnail?path=%s", relativePath);
+                return String.format("http://34.236.102.26:8000/api/media/gallery/thumbnail?path=%s", relativePath);
             }
         }
         
@@ -168,7 +168,7 @@ public class DrillItemService extends DrillItemBaseService {
         try {
             String encodedPath = java.net.URLEncoder.encode(localPath, java.nio.charset.StandardCharsets.UTF_8)
                     .replace("+", "%20");
-            return String.format("http://103.99.202.227:8000/api/media/gallery/thumbnail?path=%s", encodedPath);
+            return String.format("http://34.236.102.26:8000/api/media/gallery/thumbnail?path=%s", encodedPath);
         } catch (Exception e) {
             return localPath; // Return original path if we can't convert it
         }
