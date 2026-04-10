@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @Builder(toBuilder = true)
 @AllArgsConstructor
@@ -38,7 +40,7 @@ public class CrmRegistration {
     private String role;
     
     @JsonProperty("teamId")
-    private Long teamId;
+    private UUID teamId;
     
     @JsonProperty("paymentStatus")
     private String paymentStatus;

@@ -185,6 +185,7 @@ public class SsoResource {
                         .phoneNumber(registration.getPhoneNumber() != null ? registration.getPhoneNumber().orElse("") : "")
                         .role(registration.getRole() != null ? registration.getRole().orElse("ATHLETE") : "ATHLETE")
                         .birthDate(0L)
+                        .teamId(registration.getTeamId() != null ? registration.getTeamId().orElse(null) : null)
                         .build();
                 userRow = userService.registerUser(createPartial, false);
             }
@@ -202,7 +203,7 @@ public class SsoResource {
                     .phoneNumber(registration.getPhoneNumber() != null ? registration.getPhoneNumber().orElse("") : "")
                     .role(registration.getRole() != null ? registration.getRole().orElse("ATHLETE") : "ATHLETE")
                     .birthDate(0L)
-                    
+                    .teamId(registration.getTeamId() != null ? registration.getTeamId().orElse(null) : null)
                     .build();
 
             if (isNewUser) {
@@ -266,6 +267,13 @@ public Response coachLogin(LoginUser loginUser) {
                     .build();
         }
 
+        // Look up CRM registration to get the coach's team UUID
+        CrmRegistrationRow coachCrmReg = crmRegistrationService.findByUsername(username)
+                .or(() -> crmRegistrationService.findByEmail(username))
+                .orElse(null);
+        java.util.UUID crmTeamId = (coachCrmReg != null && coachCrmReg.getTeamId() != null)
+                ? coachCrmReg.getTeamId().orElse(null) : null;
+
         // Step 2: Keycloak provisioning
         UUID placeholderUuid = UUID.fromString("00000000-0000-0000-0000-000000000000");
         boolean isNewUser = (coach.getKeycloakId() == null || placeholderUuid.equals(coach.getKeycloakId()));
@@ -276,6 +284,7 @@ public Response coachLogin(LoginUser loginUser) {
                 .email(coach.getEmail())
                 .role("COACH")
                 .birthDate(0L)
+                .teamId(crmTeamId)
                 .build();
 
         if (isNewUser) {
