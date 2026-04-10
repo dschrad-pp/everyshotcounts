@@ -29,7 +29,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 public class MediaResource {
 
     private static Logger logger = LoggerFactory.getLogger(MediaResource.class);
-    private static final String SERVER_BASE_URL = "http://103.99.202.227:8000";
+    private static final String SERVER_BASE_URL = "http://34.236.102.26:8000";
 
     @Context
     HttpHeaders headers;
