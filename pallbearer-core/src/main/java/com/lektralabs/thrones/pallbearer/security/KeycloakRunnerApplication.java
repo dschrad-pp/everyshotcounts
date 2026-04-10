@@ -32,7 +32,8 @@ public class KeycloakRunnerApplication implements QuarkusApplication {
                 "Karrol",
                 "(515) 555-1515",
                 641588400000L,
-                "PROVIDER"
+                "PROVIDER",
+                null
         );
         keycloakProvider.registerUser(registerUserPartial);
     }
@@ -47,7 +48,8 @@ public class KeycloakRunnerApplication implements QuarkusApplication {
                 "Karrol",
                 "(515) 555-1515",
                 641588400000L,
-                "PROVIDER"
+                "PROVIDER",
+                null
         );
         System.out.println(keycloakProvider.findUser(registerUserPartial));
     }
