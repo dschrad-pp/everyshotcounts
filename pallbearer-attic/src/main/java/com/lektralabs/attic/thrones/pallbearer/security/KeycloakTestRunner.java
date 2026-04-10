@@ -87,7 +87,8 @@ public class KeycloakTestRunner {
                         "Evans",
                         "867-5309",
                         0L,
-                        "COACH"
+                        "COACH",
+                        null
                 );
                 keycloakProvider.associateRoleWithUser(userId, registerUserPartial);
 
@@ -105,7 +106,8 @@ public class KeycloakTestRunner {
                         "Evans",
                         "867-5309",
                         0L,
-                        "COACH"
+                        "COACH",
+                        null
                 );
                 keycloakProvider.associateGroupWithUser(userId, registerUserPartial);
 
