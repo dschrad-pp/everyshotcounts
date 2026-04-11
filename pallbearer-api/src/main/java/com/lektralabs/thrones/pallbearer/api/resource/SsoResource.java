@@ -236,9 +236,10 @@ public class SsoResource {
                     .entity(new GenericApiResponse<>(401, "Authentication failed: " + e.getMessage(), null))
                     .build();
         } catch (Exception e) {
-            logger.error("CRM login failed for user: {}", username, e);
+            logger.error("CRM login failed for user: {} [{}] {}", username, e.getClass().getSimpleName(), e.getMessage(), e);
+            String debugMsg = "Login failed [" + e.getClass().getSimpleName() + ": " + e.getMessage() + "]";
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(new GenericApiResponse<>(500, "Login failed", null))
+                    .entity(new GenericApiResponse<>(500, debugMsg, null))
                     .build();
         }
     }
@@ -312,9 +313,10 @@ public Response coachLogin(LoginUser loginUser) {
         return Response.ok(responseBody).build();
 
     } catch (Exception e) {
-        logger.error("Coach login failed for user: {}", username, e);
+        logger.error("Coach login failed for user: {} [{}] {}", username, e.getClass().getSimpleName(), e.getMessage(), e);
+        String debugMsg = "Login failed [" + e.getClass().getSimpleName() + ": " + e.getMessage() + "]";
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new GenericApiResponse<>(500, "Login failed", null))
+                .entity(new GenericApiResponse<>(500, debugMsg, null))
                 .build();
     }
 }
