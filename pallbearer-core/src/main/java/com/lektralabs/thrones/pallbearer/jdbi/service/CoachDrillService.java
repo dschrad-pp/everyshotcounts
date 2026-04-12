@@ -76,6 +76,10 @@ public class CoachDrillService {
                 .distinct() // Get distinct user IDs to avoid redundant queries
                 .toList();
 
+        if (athleteUserIds.isEmpty()) {
+            return List.of();
+        }
+
         List<UserPropertyRow> userPropertyRows = userPropertyDao.findByUserIds(athleteUserIds);
 
         Map<UUID, List<UserPropertyRow>> userPropertiesMap = userPropertyRows.stream()
