@@ -59,4 +59,5 @@ insertUserTeamMapping() ::= <<
         :userId,
         'UNVERIFIED'
     )
+    ON CONFLICT DO NOTHING
 >>

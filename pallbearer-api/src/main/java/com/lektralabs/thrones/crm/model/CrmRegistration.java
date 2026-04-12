@@ -41,7 +41,10 @@ public class CrmRegistration {
     
     @JsonProperty("teamId")
     private UUID teamId;
-    
+
+    @JsonProperty("teamName")
+    private String teamName;
+
     @JsonProperty("paymentStatus")
     private String paymentStatus;
     
