@@ -55,6 +55,8 @@ selectByUsername() ::= <<
           , version
        FROM t_user
       WHERE lower(username) = lower(:username)
+      ORDER BY (keycloak_id = '00000000-0000-0000-0000-000000000000') ASC, version DESC
+      LIMIT 1
 >>
 
 selectByRegistrationCode() ::= <<

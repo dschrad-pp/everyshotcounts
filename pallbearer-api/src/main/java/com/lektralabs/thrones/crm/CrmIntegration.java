@@ -3,10 +3,14 @@ package com.lektralabs.thrones.crm;
 import com.lektralabs.thrones.crm.model.CrmRegistration;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.SystemPropertiesPartial;
 import com.lektralabs.thrones.pallbearer.common.UserPropertyConstants;
+import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
+import com.lektralabs.thrones.pallbearer.jdbi.dao.generated.TeamBaseDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.CrmRegistrationRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.SystemPropertiesRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.TeamRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.CrmRegistrationService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.SystemPropertiesService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.UserPropertyService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 import com.lektralabs.thrones.pallbearer.api.model.partial.RegisterUserPartial;
@@ -43,10 +47,19 @@ public class CrmIntegration implements UserPropertyConstants {
     @Inject
     UserPropertyService userPropertyService;
 
+    @Inject
+    TeamService teamService;
+
+    @Inject
+    JdbiProvider jdbiProvider;
+
     // Use a UUID for the system property ID - generate once and store
-    private static final java.util.UUID CRM_RECORD_LAST_UPDATE_ID = 
+    private static final java.util.UUID CRM_RECORD_LAST_UPDATE_ID =
         java.util.UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     private static final String CRM_RECORD_LAST_UPDATE_KEY = "crm.records.last_updated";
+
+    // The default team that all users fall back to — used as sport/org template when auto-creating CRM teams
+    private static final UUID DEFAULT_TEAM_ID = UUID.fromString("2a3b4697-26ee-4294-812e-6e1b00bd8e90");
 
     /**
      * Sync registrations from CRM API
@@ -321,6 +334,18 @@ public class CrmIntegration implements UserPropertyConstants {
             // Register the new user (without Keycloak - will be activated later)
             UserRow userRow = userService.registerUser(registerUserPartial, false);
 
+            // Link user to their CRM team
+            UUID crmTeamId = registration.getTeamId();
+            if (crmTeamId != null) {
+                ensureTeamExists(crmTeamId, registration.getTeamName());
+                try {
+                    teamService.mapUserToTeam(userRow.getId(), crmTeamId);
+                    logger.infof("Linked user %s to CRM team %s", userRow.getId(), crmTeamId);
+                } catch (Exception e) {
+                    logger.warnf("Failed to link user %s to team %s: %s", userRow.getId(), crmTeamId, e.getMessage());
+                }
+            }
+
             // Save user properties for the new user
             userPropertyService.addProperties(userRow.getId(), userPropertyMap);
 
@@ -338,6 +363,25 @@ public class CrmIntegration implements UserPropertyConstants {
             logger.info("Created new user from CRM registration: " + registration.getEmail());
             return new int[]{1, 1, 0}; // processed=1, created=1, updated=0
         }
+    }
+
+    /**
+     * Ensure a team exists in t_team for the given CRM teamId.
+     * If absent, auto-creates it using the sport/org from the default fallback team.
+     */
+    private void ensureTeamExists(UUID crmTeamId, String teamName) {
+        if (teamService.findById(crmTeamId).isPresent()) return;
+        TeamRow fallback = teamService.findById(DEFAULT_TEAM_ID)
+                .orElseThrow(() -> new IllegalStateException("Default team not found: " + DEFAULT_TEAM_ID));
+        TeamRow newTeam = TeamRow.builder()
+                .id(crmTeamId)
+                .sportId(fallback.getSportId())
+                .organizationId(fallback.getOrganizationId())
+                .name(Optional.of(teamName != null && !teamName.isBlank() ? teamName : "CRM Team " + crmTeamId))
+                .description(Optional.of("Auto-created from CRM registration"))
+                .build();
+        jdbiProvider.getJdbi().onDemand(TeamBaseDao.class).insert(newTeam);
+        logger.infof("Auto-created team %s (%s) from CRM data", crmTeamId, newTeam.getName());
     }
 
     /**

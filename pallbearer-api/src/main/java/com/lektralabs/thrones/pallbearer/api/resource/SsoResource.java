@@ -28,6 +28,7 @@ import jakarta.ws.rs.HeaderParam;
 
 
 import com.lektralabs.thrones.pallbearer.jdbi.service.CoachDrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.CoachPartial;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,6 +52,8 @@ public class SsoResource {
     CrmRegistrationService crmRegistrationService;
     @Inject
     CoachDrillService coachDrillService;
+    @Inject
+    TeamService teamService;
 
     @Path("/login")
     @POST
@@ -185,6 +188,7 @@ public class SsoResource {
                         .phoneNumber(registration.getPhoneNumber() != null ? registration.getPhoneNumber().orElse("") : "")
                         .role(registration.getRole() != null ? registration.getRole().orElse("ATHLETE") : "ATHLETE")
                         .birthDate(0L)
+                        .teamId(registration.getTeamId() != null ? registration.getTeamId().orElse(null) : null)
                         .build();
                 userRow = userService.registerUser(createPartial, false);
             }
@@ -202,7 +206,7 @@ public class SsoResource {
                     .phoneNumber(registration.getPhoneNumber() != null ? registration.getPhoneNumber().orElse("") : "")
                     .role(registration.getRole() != null ? registration.getRole().orElse("ATHLETE") : "ATHLETE")
                     .birthDate(0L)
-                    
+                    .teamId(registration.getTeamId() != null ? registration.getTeamId().orElse(null) : null)
                     .build();
 
             if (isNewUser) {
@@ -215,6 +219,15 @@ public class SsoResource {
             } else {
                 logger.info("CRM login: syncing Keycloak password for existing user {}", regUsername);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
+                // Refresh team assignment from CRM data on every login
+                java.util.UUID crmTeamId = registration.getTeamId() != null ? registration.getTeamId().orElse(null) : null;
+                if (crmTeamId != null) {
+                    try {
+                        teamService.mapUserToTeam(userRow.getId(), crmTeamId);
+                    } catch (Exception e) {
+                        logger.warn("CRM login: team mapping refresh failed for {} (non-fatal): {}", regUsername, e.getMessage());
+                    }
+                }
             }
 
             // Step 7: Get token using canonical regUsername
@@ -235,9 +248,10 @@ public class SsoResource {
                     .entity(new GenericApiResponse<>(401, "Authentication failed: " + e.getMessage(), null))
                     .build();
         } catch (Exception e) {
-            logger.error("CRM login failed for user: {}", username, e);
+            logger.error("CRM login failed for user: {} [{}] {}", username, e.getClass().getSimpleName(), e.getMessage(), e);
+            String debugMsg = "Login failed [" + e.getClass().getSimpleName() + ": " + e.getMessage() + "]";
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(new GenericApiResponse<>(500, "Login failed", null))
+                    .entity(new GenericApiResponse<>(500, debugMsg, null))
                     .build();
         }
     }
@@ -266,6 +280,13 @@ public Response coachLogin(LoginUser loginUser) {
                     .build();
         }
 
+        // Look up CRM registration to get the coach's team UUID
+        CrmRegistrationRow coachCrmReg = crmRegistrationService.findByUsername(username)
+                .or(() -> crmRegistrationService.findByEmail(username))
+                .orElse(null);
+        java.util.UUID crmTeamId = (coachCrmReg != null && coachCrmReg.getTeamId() != null)
+                ? coachCrmReg.getTeamId().orElse(null) : null;
+
         // Step 2: Keycloak provisioning
         UUID placeholderUuid = UUID.fromString("00000000-0000-0000-0000-000000000000");
         boolean isNewUser = (coach.getKeycloakId() == null || placeholderUuid.equals(coach.getKeycloakId()));
@@ -276,6 +297,7 @@ public Response coachLogin(LoginUser loginUser) {
                 .email(coach.getEmail())
                 .role("COACH")
                 .birthDate(0L)
+                .teamId(crmTeamId)
                 .build();
 
         if (isNewUser) {
@@ -303,9 +325,10 @@ public Response coachLogin(LoginUser loginUser) {
         return Response.ok(responseBody).build();
 
     } catch (Exception e) {
-        logger.error("Coach login failed for user: {}", username, e);
+        logger.error("Coach login failed for user: {} [{}] {}", username, e.getClass().getSimpleName(), e.getMessage(), e);
+        String debugMsg = "Login failed [" + e.getClass().getSimpleName() + ": " + e.getMessage() + "]";
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new GenericApiResponse<>(500, "Login failed", null))
+                .entity(new GenericApiResponse<>(500, debugMsg, null))
                 .build();
     }
 }

@@ -9,6 +9,7 @@ import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.Optional;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -25,7 +26,7 @@ public class CrmRegistrationRow implements Serializable {
     @ColumnName("phone")
     private Optional<String> phoneNumber;
     private Optional<String> role;
-    private Optional<Long> teamId;
+    private Optional<UUID> teamId;
     private Optional<String> paymentStatus;
     private Optional<Long> subscriptionStartDate;
     private Optional<Long> subscriptionEndDate;
