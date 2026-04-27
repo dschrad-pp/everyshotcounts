@@ -23,6 +23,8 @@ public class DrillAttemptHistoryRow implements Serializable {
     private Integer makesDetected;
     private Integer makesReported;
     private Timestamp recordedAt; // matches recorded_at TIMESTAMP in DB
+    private Integer version;
+    private UUID mediaId;
 
     private static final long serialVersionUID = 1L;
 

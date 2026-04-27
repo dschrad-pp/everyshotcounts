@@ -36,4 +36,8 @@ public interface DrillAttemptHistoryDao {
     @UseStringTemplateSqlLocator
     @SqlQuery("findById")
     Optional<DrillAttemptHistoryRow> findById(@Bind("id") UUID id);
+
+    @UseStringTemplateSqlLocator
+    @SqlUpdate("updateMediaId")
+    int updateMediaId(@Bind("drillId") UUID drillId, @Bind("mediaId") UUID mediaId, @Bind("version") int version);
 }

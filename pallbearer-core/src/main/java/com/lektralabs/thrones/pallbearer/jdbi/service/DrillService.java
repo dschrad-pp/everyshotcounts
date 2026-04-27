@@ -75,6 +75,10 @@ public class DrillService extends DrillBaseService {
         return drillDao.updateMediaId(drillId, mediaId);
     }
 
+    public void updateAttemptMediaId(UUID drillId, UUID mediaId, int version) {
+        drillAttemptHistoryService.updateMediaId(drillId, mediaId, version);
+    }
+
     public int setDrillStatus(UUID drillId, String drillStatusCode) {
         return drillDao.updateDrillStatus(drillId, drillStatusCode);
     }

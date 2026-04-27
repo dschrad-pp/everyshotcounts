@@ -578,7 +578,12 @@ public class DrillResource {
                         .build();
             }
 
-            logger.info("✅ MediaId updated for drillId={}, mediaId={}", drillId, request.getMediaId());
+            if (request.getVersion() != null) {
+                drillService.updateAttemptMediaId(drillId, request.getMediaId(), request.getVersion());
+                logger.info("✅ MediaId updated for drillId={}, mediaId={}, version={}", drillId, request.getMediaId(), request.getVersion());
+            } else {
+                logger.info("✅ MediaId updated for drillId={}, mediaId={} (no version — drill-level only)", drillId, request.getMediaId());
+            }
 
             return drillService.findByIdWithHistory(drillId)
                     .map(drillWithHistory -> Response.ok(

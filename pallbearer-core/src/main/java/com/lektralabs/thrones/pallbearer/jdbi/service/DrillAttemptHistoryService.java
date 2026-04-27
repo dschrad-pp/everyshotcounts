@@ -55,4 +55,9 @@ public class DrillAttemptHistoryService {
         logger.debug("Fetching DrillAttemptHistory for userId={}", userId);
         return drillAttemptHistoryDao.findByUserId(userId);
     }
+
+    public int updateMediaId(UUID drillId, UUID mediaId, int version) {
+        logger.debug("Updating mediaId for drillId={}, version={}", drillId, version);
+        return drillAttemptHistoryDao.updateMediaId(drillId, mediaId, version);
+    }
 }

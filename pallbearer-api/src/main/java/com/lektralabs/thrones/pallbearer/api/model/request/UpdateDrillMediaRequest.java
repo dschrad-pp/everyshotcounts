@@ -12,4 +12,5 @@ import java.util.UUID;
 public class UpdateDrillMediaRequest {
 
     private UUID mediaId;
+    private Integer version;
 }

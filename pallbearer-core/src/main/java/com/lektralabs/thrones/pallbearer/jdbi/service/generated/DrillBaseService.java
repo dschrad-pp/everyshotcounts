@@ -140,6 +140,7 @@ public class DrillBaseService {
                 .attemptsReported(drill.getAttemptsReported())
                 .makesDetected(drill.getMakesDetected())
                 .makesReported(drill.getMakesReported())
+                .version(drill.getVersion())
                 .build();
 
         drillAttemptHistoryService.insertHistory(historyRow);
