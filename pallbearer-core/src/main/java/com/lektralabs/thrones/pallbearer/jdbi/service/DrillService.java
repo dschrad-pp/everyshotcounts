@@ -24,12 +24,17 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import com.lektralabs.thrones.pallbearer.datetime.DateTimeUtils; // Corrected import for DateTimeUtils
 
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillAttemptHistoryResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillItemRow;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class DrillService extends DrillBaseService {
@@ -40,7 +45,7 @@ public class DrillService extends DrillBaseService {
     public static class DrillWithHistory {
 
         private DrillRow drill;
-        private List<DrillAttemptHistoryRow> history;
+        private List<DrillAttemptHistoryResponse> history;
     }
 
     private static Logger logger = LoggerFactory.getLogger(DrillService.class);
@@ -54,6 +59,9 @@ public class DrillService extends DrillBaseService {
 
     @Inject
     DrillAttemptHistoryService drillAttemptHistoryService;
+
+    @ConfigProperty(name = "pallbearer.server.base-url")
+    String serverBaseUrl;
 
     @PostConstruct
     public void init() {
@@ -90,7 +98,10 @@ public class DrillService extends DrillBaseService {
 
     public Optional<DrillWithHistory> findByIdWithHistory(UUID drillId) {
         return drillBaseDao.findById(drillId).map(drill -> {
-            List<DrillAttemptHistoryRow> history = drillAttemptHistoryService.findByDrillId(drillId);
+            List<DrillAttemptHistoryRow> rows = drillAttemptHistoryService.findByDrillId(drillId);
+            List<DrillAttemptHistoryResponse> history = rows.stream()
+                    .map(r -> DrillAttemptHistoryResponse.from(r, serverBaseUrl))
+                    .collect(Collectors.toList());
             return new DrillWithHistory(drill, history);
         });
     }

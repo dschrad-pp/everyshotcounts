@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillAttemptHistoryResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 
@@ -36,6 +37,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.stream.Collectors;
 
 /**
  * Provides search and submit business logic for drills in the context of an
@@ -75,7 +80,8 @@ public class AthleteDrillService {
 
     private AthleteDrillDetailDao athleteDrillDetailDao;
 
-    private static final String SERVER_BASE_URL = "http://34.236.102.26:8000";
+    @ConfigProperty(name = "pallbearer.server.base-url")
+    String serverBaseUrl;
 
     @PostConstruct
     public void init() {
@@ -125,7 +131,9 @@ public class AthleteDrillService {
                 DrillDetail drillDetail = detail.getDrillDetail().get();
                 List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
                         .findByDrillIdAndUserId(drillDetail.getId(), drillDetail.getUserId());
-                drillDetail.setAttemptHistory(historyRows);
+                drillDetail.setAttemptHistory(historyRows.stream()
+                        .map(r -> DrillAttemptHistoryResponse.from(r, serverBaseUrl))
+                        .collect(Collectors.toList()));
             } else {
                 // Create default DrillDetail when athlete hasn't attempted the drill
                 DrillDetail defaultDrillDetail = DrillDetail.builder()
@@ -376,7 +384,8 @@ public class AthleteDrillService {
                 // Verify this getter name in DrillAttemptHistoryRow
 
                 drillDetail.setAttemptHistory(
-                        mostRecentAttempt.map(Collections::singletonList)
+                        mostRecentAttempt
+                                .map(r -> Collections.singletonList(DrillAttemptHistoryResponse.from(r, serverBaseUrl)))
                                 .orElse(Collections.emptyList()));
 
                 // Fetch DrillItemRow to populate AthleteDrillDetail
@@ -390,7 +399,9 @@ public class AthleteDrillService {
                     String mediaThumbnailUrl = null;
                     if (drillItemRow.get().getMediaId().isPresent()) {
                         UUID mediaId = drillItemRow.get().getMediaId().get();
-                        mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+                        mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
+
+                        // Fallback to old method if new method returns null
                         if (mediaThumbnailUrl == null) {
                             mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
                         }
@@ -516,7 +527,8 @@ public class AthleteDrillService {
                     .max(Comparator.comparing(DrillAttemptHistoryRow::getRecordedAt));
 
             drillDetail.setAttemptHistory(
-                    mostRecentAttempt.map(Collections::singletonList)
+                    mostRecentAttempt
+                            .map(r -> Collections.singletonList(DrillAttemptHistoryResponse.from(r, serverBaseUrl)))
                             .orElse(Collections.emptyList()));
 
             if (drillItemRow.isPresent()) {
@@ -526,7 +538,7 @@ public class AthleteDrillService {
 
                     // Check if thumbnail exists and generate if not
                     // This ensures thumbnail is created from video at gallery/{mediaId}/source.mp4
-                    mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+                    mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
 
                     // Fallback to old method if new method returns null
                     if (mediaThumbnailUrl == null) {

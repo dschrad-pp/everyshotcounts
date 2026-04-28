@@ -45,6 +45,9 @@ public class GalleryMediaResource {
     @ConfigProperty(name = "pallbearer.media.store")
     String mediaStorePath;
 
+    @ConfigProperty(name = "pallbearer.server.base-url")
+    String serverBaseUrl;
+
     /**
      * Return the bytes to a drill item demonstration MP4 video file
      *
@@ -76,8 +79,6 @@ public class GalleryMediaResource {
             return Response.serverError().build();
         }
     }
-
-    private static final String SERVER_BASE_URL = "http://34.236.102.26:8000";
 
     /**
      * Return the full working video URL for a drill submission MP4 video file
@@ -128,7 +129,7 @@ public class GalleryMediaResource {
             
             // Return the full working video URL pointing to the video endpoint
             String videoUrl = String.format("%s/api/media/gallery/video?path=%s", 
-                    SERVER_BASE_URL, encodedPath);
+                    serverBaseUrl, encodedPath);
             
             logger.info("Returning video URL for drillId: {}, mediaId: {}, path: {}", 
                     drillId, mediaId, relativePath);
