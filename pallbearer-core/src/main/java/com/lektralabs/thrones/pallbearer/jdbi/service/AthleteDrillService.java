@@ -80,6 +80,7 @@ public class AthleteDrillService {
 
     private AthleteDrillDetailDao athleteDrillDetailDao;
 
+    @Inject
     @ConfigProperty(name = "pallbearer.server.base-url")
     String serverBaseUrl;
 
