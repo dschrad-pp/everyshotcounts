@@ -33,6 +33,7 @@ public class DrillPartial implements Serializable, EntityMethods {
     private Integer attemptsReported;
     private Integer makesDetected;
     private Integer makesReported;
+    private String attemptLocalId;
 
     public DrillRow toRow(CurrentUser auditUser) {
         long now = DateTimeUtils.now().getMillis();

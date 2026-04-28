@@ -217,9 +217,10 @@ public class AthleteDrillItemProgressManager {
                     .makesReported(partial.getMakesReported() != null ? partial.getMakesReported() : 0)
                     .mediaId(mediaId)
                     .version(version)
+                    .attemptLocalId(partial.getAttemptLocalId())
                     .build();
             drillAttemptHistoryService.insertHistory(row);
-            logger.info("📋 Inserted attempt history row for DrillId={}, UserId={}", drillId, userId);
+            logger.info("📋 Inserted attempt history row for DrillId={}, UserId={}, AttemptLocalId={}", drillId, userId, partial.getAttemptLocalId());
         } catch (Exception e) {
             logger.error("❌ Failed to insert attempt history for DrillId={}, UserId={}", drillId, userId, e);
         }

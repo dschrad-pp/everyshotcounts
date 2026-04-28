@@ -141,6 +141,8 @@ public class DrillBaseService {
                 .makesDetected(drill.getMakesDetected())
                 .makesReported(drill.getMakesReported())
                 .version(drill.getVersion())
+                // attemptLocalId not available from DrillRow — left null so ON CONFLICT does not apply
+                .attemptLocalId(null)
                 .build();
 
         drillAttemptHistoryService.insertHistory(historyRow);
