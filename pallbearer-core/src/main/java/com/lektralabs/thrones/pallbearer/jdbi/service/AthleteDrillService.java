@@ -81,7 +81,7 @@ public class AthleteDrillService {
     private AthleteDrillDetailDao athleteDrillDetailDao;
 
     @Inject
-    @ConfigProperty(name = "pallbearer.server.base-url")
+    @ConfigProperty(name = "pallbearer.server.base-url", defaultValue = "http://34.236.102.26:8000")
     String serverBaseUrl;
 
     @PostConstruct
