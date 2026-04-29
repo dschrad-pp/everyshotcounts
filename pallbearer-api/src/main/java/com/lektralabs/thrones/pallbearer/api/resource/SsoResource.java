@@ -8,6 +8,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.CrmRegistrationService;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.CrmRegistrationRow;
 import com.lektralabs.thrones.pallbearer.api.model.partial.RegisterUserPartial;
+import com.lektralabs.thrones.pallbearer.api.model.request.AdminSignupRequest;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -33,6 +34,7 @@ import com.lektralabs.thrones.pallbearer.api.model.partial.generated.CoachPartia
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 
 @Path("/api/sso")
@@ -55,6 +57,9 @@ public class SsoResource {
     @Inject
     TeamService teamService;
 
+    @ConfigProperty(name = "admin.bootstrap.api.key")
+    String adminBootstrapApiKey;
+
     @Path("/login")
     @POST
     public Response login(LoginUser loginUser) {
@@ -67,6 +72,122 @@ public class SsoResource {
             logger.warn("Error in current", e);
             return Response.status(Response.Status.FORBIDDEN.getStatusCode()).
                     entity("You shall not pass").build();
+        }
+    }
+
+    @Path("/admin-signup")
+    @POST
+    @PermitAll
+    public Response adminSignup(@HeaderParam("X-BOOTSTRAP-KEY") String bootstrapKey,
+            AdminSignupRequest request) {
+        try {
+            if (bootstrapKey == null || bootstrapKey.isBlank() || !bootstrapKey.equals(adminBootstrapApiKey)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity(new GenericApiResponse<>(403, "Invalid bootstrap key", null))
+                        .build();
+            }
+
+            if (request == null
+                    || request.getUsername() == null || request.getUsername().isBlank()
+                    || request.getEmail() == null || request.getEmail().isBlank()
+                    || request.getPassword() == null || request.getPassword().isBlank()
+                    || request.getConfirmPassword() == null || request.getConfirmPassword().isBlank()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new GenericApiResponse<>(400, "username, email, password, confirmPassword are required", null))
+                        .build();
+            }
+
+            String username = request.getUsername().trim().toLowerCase();
+            String email = request.getEmail().trim().toLowerCase();
+
+            if (request.getPassword().length() < 8) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new GenericApiResponse<>(400, "Password must be at least 8 characters", null))
+                        .build();
+            }
+
+            if (!request.getPassword().equals(request.getConfirmPassword())) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new GenericApiResponse<>(400, "Password and confirmPassword do not match", null))
+                        .build();
+            }
+
+            if (userService.findByUsername(username).isPresent()) {
+                return Response.status(Response.Status.CONFLICT)
+                        .entity(new GenericApiResponse<>(409, "Username already exists", null))
+                        .build();
+            }
+
+            if (userService.findByEmail(email).isPresent()) {
+                return Response.status(Response.Status.CONFLICT)
+                        .entity(new GenericApiResponse<>(409, "Email already exists", null))
+                        .build();
+            }
+
+            RegisterUserPartial registerUserPartial = RegisterUserPartial.builder()
+                    .username(username)
+                    .email(email)
+                    .password(request.getPassword())
+                    .firstName("Admin")
+                    .lastName("User")
+                    .phoneNumber("")
+                    .birthDate(0L)
+                    .role("ADMIN")
+                    .teamId(null)
+                    .build();
+
+            userService.registerUser(registerUserPartial, true);
+            OpenIdResponse openIdResponse = keycloakProvider.getUserAccessToken(username, request.getPassword());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("username", username);
+            response.put("email", email);
+            response.put("role", "ADMIN");
+            response.put("access_token", openIdResponse.getAccessToken());
+            response.put("refresh_token", openIdResponse.getRefreshToken());
+            response.put("expires_in", openIdResponse.getExpiresIn());
+            response.put("token_type", openIdResponse.getTokenType());
+            return Response.ok(new GenericApiResponse<>(200, "Admin created successfully", response)).build();
+        } catch (Exception e) {
+            logger.error("Admin signup failed", e);
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new GenericApiResponse<>(400, "Admin signup failed: " + e.getMessage(), null))
+                    .build();
+        }
+    }
+
+    @Path("/admin-login")
+    @POST
+    @PermitAll
+    public Response adminLogin(LoginUser loginUser) {
+        if (loginUser == null || loginUser.getUsername() == null || loginUser.getUsername().isBlank()
+                || loginUser.getPassword() == null || loginUser.getPassword().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new GenericApiResponse<>(400, "Username and password are required", null))
+                    .build();
+        }
+        try {
+            OpenIdResponse tokenResponse = keycloakProvider.getUserAccessToken(loginUser.getUsername(),
+                    loginUser.getPassword());
+
+            if (tokenResponse.getRole() == null || !"ADMIN".equalsIgnoreCase(tokenResponse.getRole())) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity(new GenericApiResponse<>(403, "Only ADMIN can login here", null))
+                        .build();
+            }
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("access_token", tokenResponse.getAccessToken());
+            responseBody.put("refresh_token", tokenResponse.getRefreshToken());
+            responseBody.put("expires_in", tokenResponse.getExpiresIn());
+            responseBody.put("token_type", tokenResponse.getTokenType());
+            responseBody.put("role", tokenResponse.getRole());
+            return Response.ok(new GenericApiResponse<>(200, "Admin login successful", responseBody)).build();
+        } catch (Exception e) {
+            logger.warn("Admin login failed", e);
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new GenericApiResponse<>(401, "Invalid credentials", null))
+                    .build();
         }
     }
 

@@ -29,6 +29,7 @@ public interface DrillItemDao {
     List<DrillItemDetail> findAll();
 
     @UseStringTemplateSqlLocator
+    @RegisterBeanMapper(DrillItemRow.class)
     @SqlQuery("findByDrillGroupId")
     List<DrillItemRow> findByDrillGroupId(
             @org.jdbi.v3.sqlobject.customizer.Bind("drillGroupId") UUID drillGroupId);
@@ -38,6 +39,14 @@ public interface DrillItemDao {
     int updatePassingScore(
             @org.jdbi.v3.sqlobject.customizer.Bind("drillItemId") UUID drillItemId,
             @org.jdbi.v3.sqlobject.customizer.Bind("passingScore") Integer passingScore,
+            @org.jdbi.v3.sqlobject.customizer.Bind("modificationDate") Long modificationDate,
+            @org.jdbi.v3.sqlobject.customizer.Bind("modifiedById") UUID modifiedById);
+
+    @UseStringTemplateSqlLocator
+    @SqlUpdate("updateTimeLimitMs")
+    int updateTimeLimitMs(
+            @org.jdbi.v3.sqlobject.customizer.Bind("drillItemId") UUID drillItemId,
+            @org.jdbi.v3.sqlobject.customizer.Bind("timeLimitMs") Long timeLimitMs,
             @org.jdbi.v3.sqlobject.customizer.Bind("modificationDate") Long modificationDate,
             @org.jdbi.v3.sqlobject.customizer.Bind("modifiedById") UUID modifiedById);
 

@@ -94,6 +94,7 @@ findByDrillGroupId() ::= <<
         di.name                          AS "name",
         di.description                   AS "description",
         di.level_index                   AS "levelIndex",
+        di.time_limit_ms                 AS "timeLimitMs",
         di.passing_score                 AS "passingScore",
         di.version                       AS "version"
     FROM
@@ -105,6 +106,15 @@ findByDrillGroupId() ::= <<
 updatePassingScore() ::= <<
     UPDATE t_drill_item
        SET passing_score = :passingScore
+         , modification_date = :modificationDate
+         , modified_by_id = :modifiedById
+         , version = version + 1
+     WHERE id = :drillItemId
+>>
+
+updateTimeLimitMs() ::= <<
+    UPDATE t_drill_item
+       SET time_limit_ms = :timeLimitMs
          , modification_date = :modificationDate
          , modified_by_id = :modifiedById
          , version = version + 1
