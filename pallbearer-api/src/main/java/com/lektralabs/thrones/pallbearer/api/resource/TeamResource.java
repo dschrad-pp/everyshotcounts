@@ -1,8 +1,11 @@
 package com.lektralabs.thrones.pallbearer.api.resource;
 
+import com.lektralabs.thrones.pallbearer.api.model.display.CurrentUser;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.TeamPartial;
+import com.lektralabs.thrones.pallbearer.api.model.request.JoinTeamRequest;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -13,9 +16,8 @@ import jakarta.ws.rs.core.UriInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.UUID;
-
-// This is generated code. Please remove this comment if you modify.
 
 @Path("/api/team")
 public class TeamResource {
@@ -23,6 +25,9 @@ public class TeamResource {
 
     @Inject
     TeamService teamService;
+
+    @Inject
+    UserService userService;
 
     @GET
     @Path("/{teamId}")
@@ -36,10 +41,38 @@ public class TeamResource {
 
     @POST
     @Path("/")
-    @RolesAllowed({"ADMIN", "ATHLETE", "COACH", "FAN", "USER"})
+    @RolesAllowed({"ADMIN", "COACH"})
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createTeam(TeamPartial teamPartial) {
-        return Response.ok(teamService.create(teamPartial)).build();
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response createTeam(Map<String, String> body) {
+        String teamName = body != null ? body.get("name") : null;
+        if (teamName == null || teamName.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "Team name is required"))
+                    .build();
+        }
+        CurrentUser currentUser = userService.getCurrentUser();
+        Map<String, String> result = teamService.createTeamWithJoinCode(teamName, currentUser.getId());
+        return Response.ok(result).build();
+    }
+
+    @POST
+    @Path("/join")
+    @RolesAllowed({"ADMIN", "ATHLETE", "COACH"})
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response joinTeam(JoinTeamRequest request) {
+        if (request == null || request.getJoinCode() == null || request.getJoinCode().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "joinCode is required"))
+                    .build();
+        }
+        CurrentUser currentUser = userService.getCurrentUser();
+        return teamService.joinTeamByCode(currentUser.getId(), request.getJoinCode())
+                .map(team -> Response.ok(team).build())
+                .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
+                        .entity(Map.of("error", "Invalid join code"))
+                        .build());
     }
 
     @PUT

@@ -3,3 +3,33 @@ group TeamDao;
 comment() ::= <<
 <! // This file is meant to be customized. !>
 >>
+
+insertJoinCode() ::= <<
+    INSERT INTO t_team_join_code (team_id, join_code)
+    VALUES (:teamId, :joinCode)
+>>
+
+findTeamByJoinCode() ::= <<
+    SELECT t.id
+         , t.sport_id
+         , t.organization_id
+         , t.name
+         , t.description
+      FROM t_team t
+      JOIN t_team_join_code jc ON t.id = jc.team_id
+     WHERE jc.join_code = :joinCode
+>>
+
+findJoinCodeByTeamId() ::= <<
+    SELECT join_code
+      FROM t_team_join_code
+     WHERE team_id = :teamId
+>>
+
+userHasTeam() ::= <<
+    SELECT EXISTS (
+        SELECT 1
+          FROM t_team_user_xref
+         WHERE user_id = :userId
+    )
+>>

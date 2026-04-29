@@ -334,9 +334,9 @@ public class CrmIntegration implements UserPropertyConstants {
             // Register the new user (without Keycloak - will be activated later)
             UserRow userRow = userService.registerUser(registerUserPartial, false);
 
-            // Link user to their CRM team
+            // Link user to their CRM team — skip if user already has an in-app team
             UUID crmTeamId = registration.getTeamId();
-            if (crmTeamId != null) {
+            if (crmTeamId != null && !teamService.userHasTeam(userRow.getId())) {
                 ensureTeamExists(crmTeamId, registration.getTeamName());
                 try {
                     teamService.mapUserToTeam(userRow.getId(), crmTeamId);
@@ -344,6 +344,8 @@ public class CrmIntegration implements UserPropertyConstants {
                 } catch (Exception e) {
                     logger.warnf("Failed to link user %s to team %s: %s", userRow.getId(), crmTeamId, e.getMessage());
                 }
+            } else if (crmTeamId != null) {
+                logger.infof("Skipping CRM team %s for user %s — already has an in-app team", crmTeamId, userRow.getId());
             }
 
             // Save user properties for the new user
