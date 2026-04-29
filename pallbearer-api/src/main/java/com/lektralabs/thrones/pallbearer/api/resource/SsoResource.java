@@ -332,11 +332,7 @@ public class SsoResource {
 
             if (isNewUser) {
                 logger.info("CRM login: provisioning new Keycloak user for {}", regUsername);
-                try {
-                    userService.activateUser(keycloakPartial);
-                } catch (Exception e) {
-                    logger.warn("CRM login: activation issue for {} (will attempt token anyway): {}", regUsername, e.getMessage());
-                }
+                userService.activateUser(keycloakPartial);
             } else {
                 logger.info("CRM login: syncing Keycloak password for existing user {}", regUsername);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
@@ -422,11 +418,7 @@ public Response coachLogin(LoginUser loginUser) {
                 .build();
 
         if (isNewUser) {
-            try {
-                userService.activateUser(keycloakPartial);
-            } catch (Exception e) {
-                logger.warn("coach-login: activation issue for {} (will attempt token anyway): {}", username, e.getMessage());
-            }
+            userService.activateUser(keycloakPartial);
         } else {
             keycloakProvider.changeUserPassword(coach.getKeycloakId(), password);
         }

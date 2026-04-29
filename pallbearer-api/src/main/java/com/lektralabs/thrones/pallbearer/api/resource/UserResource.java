@@ -122,7 +122,9 @@ public class UserResource {
                 OpenIdResponse openIdResponse = keycloakProvider.getUserAccessToken(registerUserPartial.getUsername(), registerUserPartial.getPassword());
                 return Response.ok(new GenericApiResponse<>(HttpStatus.SC_OK, "Registration successful with Keycloak", openIdResponse)).build();
             } else {
-                return Response.ok(new GenericApiResponse<>(HttpStatus.SC_OK, "Registration successful", new OpenIdResponse())).build();
+                return Response.status(202)
+                        .entity(new GenericApiResponse<>(202, "Registration successful. Activation required.", null))
+                        .build();
             }
         } catch (RegistrationException re) {
             logger.warn("Error in registration", re);
