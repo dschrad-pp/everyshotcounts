@@ -2,12 +2,15 @@ package com.lektralabs.thrones.pallbearer.api.service;
 
 import com.lektralabs.thrones.pallbearer.api.model.display.CurrentUser;
 import com.lektralabs.thrones.pallbearer.api.model.request.TimeLimitByLevelUpdateRequest;
+import com.lektralabs.thrones.pallbearer.api.model.request.TimeLimitByDrillItemsUpdateRequest;
+import com.lektralabs.thrones.pallbearer.api.model.response.TimeLimitByDrillItemsUpdateResponse;
 import com.lektralabs.thrones.pallbearer.api.model.response.TimeLimitByLevelUpdateResponse;
 import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.DrillItemDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillItemRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.DrillItemService;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -29,6 +32,9 @@ public class DrillItemTimeLimitService {
 
     @Inject
     UserService userService;
+
+    @Inject
+    DrillItemService drillItemService;
 
     private DrillItemDao drillItemDao;
 
@@ -112,6 +118,82 @@ public class DrillItemTimeLimitService {
                 .matchedCount(matching.size())
                 .updatedCount(dryRun ? 0 : updatedCount)
                 .matchedDrills(changes)
+                .build();
+    }
+
+    @Transactional
+    public TimeLimitByDrillItemsUpdateResponse updateTimeLimitByDrillItems(TimeLimitByDrillItemsUpdateRequest request) {
+        if (request == null || request.getUpdates() == null || request.getUpdates().isEmpty()) {
+            throw new IllegalArgumentException("updates is required");
+        }
+        boolean dryRun = Boolean.TRUE.equals(request.getDryRun());
+        CurrentUser currentUser = userService.getCurrentUser();
+        UUID modifiedById = currentUser.getId();
+        long modificationDate = System.currentTimeMillis();
+
+        List<TimeLimitByDrillItemsUpdateResponse.UpdatedDrillItem> updated = new ArrayList<>();
+        List<TimeLimitByDrillItemsUpdateResponse.FailedDrillItem> failed = new ArrayList<>();
+
+        for (TimeLimitByDrillItemsUpdateRequest.DrillItemTimeLimitUpdate item : request.getUpdates()) {
+            if (item == null || item.getDrillItemId() == null) {
+                failed.add(TimeLimitByDrillItemsUpdateResponse.FailedDrillItem.builder()
+                        .drillItemId(null)
+                        .requestedTimeLimitMs(item != null ? item.getTimeLimitMs() : null)
+                        .reason("drillItemId is required")
+                        .build());
+                continue;
+            }
+            if (item.getTimeLimitMs() == null || item.getTimeLimitMs() <= 0) {
+                failed.add(TimeLimitByDrillItemsUpdateResponse.FailedDrillItem.builder()
+                        .drillItemId(item.getDrillItemId())
+                        .requestedTimeLimitMs(item.getTimeLimitMs())
+                        .reason("timeLimitMs must be greater than 0")
+                        .build());
+                continue;
+            }
+
+            var drillOpt = drillItemService.findById(item.getDrillItemId());
+            if (drillOpt.isEmpty()) {
+                failed.add(TimeLimitByDrillItemsUpdateResponse.FailedDrillItem.builder()
+                        .drillItemId(item.getDrillItemId())
+                        .requestedTimeLimitMs(item.getTimeLimitMs())
+                        .reason("Drill item not found")
+                        .build());
+                continue;
+            }
+
+            var drill = drillOpt.get();
+            if (!dryRun) {
+                int rows = drillItemDao.updateTimeLimitMs(
+                        item.getDrillItemId(),
+                        item.getTimeLimitMs(),
+                        modificationDate,
+                        modifiedById);
+                if (rows <= 0) {
+                    failed.add(TimeLimitByDrillItemsUpdateResponse.FailedDrillItem.builder()
+                            .drillItemId(item.getDrillItemId())
+                            .requestedTimeLimitMs(item.getTimeLimitMs())
+                            .reason("Update failed")
+                            .build());
+                    continue;
+                }
+            }
+
+            updated.add(TimeLimitByDrillItemsUpdateResponse.UpdatedDrillItem.builder()
+                    .drillItemId(drill.getId())
+                    .name(drill.getName().orElse(""))
+                    .oldTimeLimitMs(drill.getTimeLimitMs())
+                    .newTimeLimitMs(item.getTimeLimitMs())
+                    .build());
+        }
+
+        return TimeLimitByDrillItemsUpdateResponse.builder()
+                .dryRun(dryRun)
+                .totalRequested(request.getUpdates().size())
+                .totalUpdated(updated.size())
+                .totalFailed(failed.size())
+                .updated(updated)
+                .failed(failed)
                 .build();
     }
 

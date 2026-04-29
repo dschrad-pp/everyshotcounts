@@ -3,9 +3,11 @@ package com.lektralabs.thrones.pallbearer.api.resource;
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.request.PassingScoreUpdateRequest;
 import com.lektralabs.thrones.pallbearer.api.model.request.TimeLimitByLevelUpdateRequest;
+import com.lektralabs.thrones.pallbearer.api.model.request.TimeLimitByDrillItemsUpdateRequest;
 import com.lektralabs.thrones.pallbearer.api.model.response.DrillListResponse;
 import com.lektralabs.thrones.pallbearer.api.model.response.PassingScoreUpdateResponse;
 import com.lektralabs.thrones.pallbearer.api.model.response.TimeLimitByLevelUpdateResponse;
+import com.lektralabs.thrones.pallbearer.api.model.response.TimeLimitByDrillItemsUpdateResponse;
 import com.lektralabs.thrones.pallbearer.api.service.DrillItemPassingScoreService;
 import com.lektralabs.thrones.pallbearer.api.service.DrillItemTimeLimitService;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
@@ -373,6 +375,50 @@ public class DrillDetailResource {
                                         .build();
                 } catch (Exception e) {
                         logger.error("Error in bulk time limit update by level", e);
+                        return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                                        .entity(new GenericApiResponse<>(
+                                                        HttpStatus.SC_INTERNAL_SERVER_ERROR,
+                                                        "Failed to update time limit: " + e.getMessage(),
+                                                        null))
+                                        .build();
+                }
+        }
+
+        @PUT
+        @Path("/time-limit/by-drill-items")
+        @RolesAllowed({ "ADMIN" })
+        @Consumes(MediaType.APPLICATION_JSON)
+        @Produces(MediaType.APPLICATION_JSON)
+        public Response bulkUpdateTimeLimitByDrillItems(TimeLimitByDrillItemsUpdateRequest request) {
+                try {
+                        if (request == null || request.getUpdates() == null || request.getUpdates().isEmpty()) {
+                                return Response.status(HttpStatus.SC_BAD_REQUEST)
+                                                .entity(new GenericApiResponse<>(
+                                                                HttpStatus.SC_BAD_REQUEST,
+                                                                "Request body must include at least one update item",
+                                                                null))
+                                                .build();
+                        }
+
+                        TimeLimitByDrillItemsUpdateResponse response = drillItemTimeLimitService
+                                        .updateTimeLimitByDrillItems(request);
+                        String message = Boolean.TRUE.equals(request.getDryRun())
+                                        ? String.format("Dry run successful. %d updates validated", response.getTotalUpdated())
+                                        : String.format("Successfully updated %d drill items", response.getTotalUpdated());
+
+                        return Response.ok(new GenericApiResponse<>(
+                                        HttpStatus.SC_OK,
+                                        message,
+                                        response)).build();
+                } catch (IllegalArgumentException e) {
+                        return Response.status(HttpStatus.SC_BAD_REQUEST)
+                                        .entity(new GenericApiResponse<>(
+                                                        HttpStatus.SC_BAD_REQUEST,
+                                                        e.getMessage(),
+                                                        null))
+                                        .build();
+                } catch (Exception e) {
+                        logger.error("Error in bulk time limit update by drill items", e);
                         return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR)
                                         .entity(new GenericApiResponse<>(
                                                         HttpStatus.SC_INTERNAL_SERVER_ERROR,
