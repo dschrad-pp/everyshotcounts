@@ -4,6 +4,7 @@ import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.DrillPartial;
 import com.lektralabs.thrones.pallbearer.api.model.partial.BulkCompleteResponse;
 import com.lektralabs.thrones.pallbearer.api.model.request.GroupLevelCompleteRequest;
+import com.lektralabs.thrones.pallbearer.api.model.request.UpdateDrillMediaRequest;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.manager.AthleteDrillItemProgressManager;
 import com.lektralabs.thrones.pallbearer.jdbi.service.DrillService;
@@ -529,6 +530,71 @@ public class DrillResource {
             logger.error("💥 Exception occurred while completing drills by group and level: {}", e.getMessage(), e);
             return Response.status(500)
                     .entity(new GenericApiResponse<>(500, "Failed to complete drills: " + e.getMessage(), null))
+                    .build();
+        }
+    }
+
+    @PATCH
+    @Path("/{drillItemId}/media")
+    @RolesAllowed({ "ADMIN", "ATHLETE", "COACH", "FAN", "USER" })
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response updateDrillMedia(
+            @PathParam("drillItemId") UUID drillItemId,
+            UpdateDrillMediaRequest request) {
+        try {
+            if (request == null || request.getMediaId() == null) {
+                logger.error("❌ Invalid request: mediaId is null");
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "mediaId is required", null))
+                        .build();
+            }
+
+            UUID userId;
+            try {
+                userId = currentUserUtils.getCurrentUserId();
+            } catch (Exception e) {
+                logger.error("❌ Failed to extract userId from token: {}", e.getMessage());
+                return Response.status(401)
+                        .entity(new GenericApiResponse<>(401, "Failed to extract user ID from token: " + e.getMessage(), null))
+                        .build();
+            }
+
+            java.util.Optional<DrillRow> drillRowOpt = drillService.findByDrillItemIdAndUserId(drillItemId, userId);
+            if (drillRowOpt == null || drillRowOpt.isEmpty()) {
+                logger.error("❌ Drill not found for drillItemId={}, userId={}", drillItemId, userId);
+                return Response.status(404)
+                        .entity(new GenericApiResponse<>(404, "Drill not found", null))
+                        .build();
+            }
+
+            UUID drillId = drillRowOpt.get().getId();
+            int result = drillService.updateMediaId(drillId, request.getMediaId());
+
+            if (result == 0) {
+                logger.error("❌ Failed to update mediaId for drillId={}", drillId);
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "Failed to update media ID", null))
+                        .build();
+            }
+
+            if (request.getVersion() != null) {
+                drillService.updateAttemptMediaId(drillId, request.getMediaId(), request.getVersion());
+                logger.info("✅ MediaId updated for drillId={}, mediaId={}, version={}", drillId, request.getMediaId(), request.getVersion());
+            } else {
+                logger.info("✅ MediaId updated for drillId={}, mediaId={} (no version — drill-level only)", drillId, request.getMediaId());
+            }
+
+            return drillService.findByIdWithHistory(drillId)
+                    .map(drillWithHistory -> Response.ok(
+                            new GenericApiResponse<>(200, "Media ID updated successfully", drillWithHistory)).build())
+                    .orElseGet(() -> Response.status(404)
+                            .entity(new GenericApiResponse<>(404, "Drill not found after update", null)).build());
+
+        } catch (Exception e) {
+            logger.error("💥 Exception updating mediaId for drillItemId={}: {}", drillItemId, e.getMessage(), e);
+            return Response.status(500)
+                    .entity(new GenericApiResponse<>(500, "Failed to update media ID: " + e.getMessage(), null))
                     .build();
         }
     }

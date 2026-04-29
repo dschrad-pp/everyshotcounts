@@ -253,7 +253,7 @@ public class KeycloakProvider {
         }
 
         try (ResteasyClient client = new ResteasyClientBuilderImpl().build()) {
-            // 1. First revoke the token
+            // 1. Revoke the access token
             Form revokeForm = new Form()
                     .param("client_id", clientId)
                     .param("client_secret", clientSecret)
@@ -263,14 +263,18 @@ public class KeycloakProvider {
             Response revokeResponse = client.target(authServerUrl + "/protocol/openid-connect/revoke")
                     .request()
                     .post(Entity.form(revokeForm));
-
-            if (revokeResponse.getStatus() != 200) {
-                String error = revokeResponse.readEntity(String.class);
-                logger.warn("Token revocation failed: {}", error);
-                // Continue anyway as logout might still work
+            try {
+                if (revokeResponse.getStatus() != 200) {
+                    logger.warn("Token revocation returned status {}: {}",
+                            revokeResponse.getStatus(), revokeResponse.readEntity(String.class));
+                }
+            } finally {
+                revokeResponse.close();
             }
 
-            // 2. Then perform logout
+            // 2. Attempt session logout — Keycloak 17+ requires refresh_token for full session
+            // termination; without it the endpoint returns 400. Since we only have the access
+            // token (already revoked above), treat a non-success here as a warning, not an error.
             Form logoutForm = new Form()
                     .param("client_id", clientId)
                     .param("client_secret", clientSecret);
@@ -279,12 +283,17 @@ public class KeycloakProvider {
                     .request()
                     .header("Authorization", "Bearer " + accessToken)
                     .post(Entity.form(logoutForm));
-
-            if (logoutResponse.getStatus() != 204 && logoutResponse.getStatus() != 200) {
-                String error = logoutResponse.readEntity(String.class);
-                throw new IllegalStateException("Logout failed with status "
-                        + logoutResponse.getStatus() + ": " + error);
+            try {
+                int status = logoutResponse.getStatus();
+                if (status != 204 && status != 200) {
+                    logger.warn("Keycloak session logout returned status {} (token already revoked): {}",
+                            status, logoutResponse.readEntity(String.class));
+                }
+            } finally {
+                logoutResponse.close();
             }
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Logout process failed", e);
             throw new IllegalStateException("Logout process failed", e);

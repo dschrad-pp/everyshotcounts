@@ -5,7 +5,9 @@ import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
 import com.lektralabs.thrones.pallbearer.common.DrillStatusConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.DrillAttemptHistoryService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.DrillService;
 import com.lektralabs.thrones.pallbearer.manager.utils.AthleteManagerUtils;
 import com.lektralabs.thrones.pallbearer.manager.utils.DrillItemUtils;
@@ -35,6 +37,9 @@ public class AthleteDrillItemProgressManager {
 
     @Inject
     DrillService drillService;
+
+    @Inject
+    DrillAttemptHistoryService drillAttemptHistoryService;
 
     /**
      * Provides the utilities around completing a drill.
@@ -83,6 +88,9 @@ public class AthleteDrillItemProgressManager {
                     if (updateResult > 0) {
                         logger.info("📦 Drill updated successfully. UpdateResult={}, DrillItemId={}, UserId={}",
                                 updateResult, drillItemId, athleteUserId);
+
+                        insertAttemptHistory(drillRow.getId(), athleteUserId, drillPartial,
+                                drillRow.getMediaId().orElse(null), drillRow.getVersion());
 
                         // Account type check
                         if (athleteUserPropertyManager.isTrialAccount(athleteUserId)) {
@@ -165,7 +173,10 @@ public class AthleteDrillItemProgressManager {
                         if (updateResult > 0) {
                             logger.info("📦 Newly created drill completed successfully. DrillId={}, DrillItemId={}, UserId={}",
                                     createdDrillId, drillItemId, athleteUserId);
-                            
+
+                            insertAttemptHistory(newDrillRow.getId(), athleteUserId, drillPartial,
+                                    newDrillRow.getMediaId().orElse(null), newDrillRow.getVersion());
+
                             // Account type check
                             if (athleteUserPropertyManager.isTrialAccount(athleteUserId)) {
                                 logger.info("👤 Athlete is a trial account. Advancing trial athlete: {}", athleteUserId);
@@ -191,6 +202,28 @@ public class AthleteDrillItemProgressManager {
         logger.error("❌ Failed to complete drill after {} retries. DrillItemId={}, UserId={}",
                 maxRetries, drillItemId, athleteUserId);
         return 0;
+    }
+
+    private void insertAttemptHistory(UUID drillId, UUID userId, DrillPartial partial,
+            UUID mediaId, Integer version) {
+        try {
+            DrillAttemptHistoryRow row = DrillAttemptHistoryRow.builder()
+                    .id(UUID.randomUUID())
+                    .drillId(drillId)
+                    .userId(userId)
+                    .attemptsDetected(partial.getAttemptsDetected() != null ? partial.getAttemptsDetected() : 0)
+                    .attemptsReported(partial.getAttemptsReported() != null ? partial.getAttemptsReported() : 0)
+                    .makesDetected(partial.getMakesDetected() != null ? partial.getMakesDetected() : 0)
+                    .makesReported(partial.getMakesReported() != null ? partial.getMakesReported() : 0)
+                    .mediaId(mediaId)
+                    .version(version)
+                    .attemptLocalId(partial.getAttemptLocalId())
+                    .build();
+            drillAttemptHistoryService.insertHistory(row);
+            logger.info("📋 Inserted attempt history row for DrillId={}, UserId={}, AttemptLocalId={}", drillId, userId, partial.getAttemptLocalId());
+        } catch (Exception e) {
+            logger.error("❌ Failed to insert attempt history for DrillId={}, UserId={}", drillId, userId, e);
+        }
     }
 
     private String getDrillStatusFromDrillPartial(DrillPartial drillPartial) {

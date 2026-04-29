@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillAttemptHistoryResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 
@@ -36,6 +37,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.stream.Collectors;
 
 /**
  * Provides search and submit business logic for drills in the context of an
@@ -75,7 +80,9 @@ public class AthleteDrillService {
 
     private AthleteDrillDetailDao athleteDrillDetailDao;
 
-    private static final String SERVER_BASE_URL = "http://34.236.102.26:8000";
+    @Inject
+    @ConfigProperty(name = "pallbearer.server.base-url", defaultValue = "http://34.236.102.26:8000")
+    String serverBaseUrl;
 
     @PostConstruct
     public void init() {
@@ -125,7 +132,9 @@ public class AthleteDrillService {
                 DrillDetail drillDetail = detail.getDrillDetail().get();
                 List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
                         .findByDrillIdAndUserId(drillDetail.getId(), drillDetail.getUserId());
-                drillDetail.setAttemptHistory(historyRows);
+                drillDetail.setAttemptHistory(historyRows.stream()
+                        .map(r -> DrillAttemptHistoryResponse.from(r, serverBaseUrl))
+                        .collect(Collectors.toList()));
             } else {
                 // Create default DrillDetail when athlete hasn't attempted the drill
                 DrillDetail defaultDrillDetail = DrillDetail.builder()
@@ -376,7 +385,8 @@ public class AthleteDrillService {
                 // Verify this getter name in DrillAttemptHistoryRow
 
                 drillDetail.setAttemptHistory(
-                        mostRecentAttempt.map(Collections::singletonList)
+                        mostRecentAttempt
+                                .map(r -> Collections.singletonList(DrillAttemptHistoryResponse.from(r, serverBaseUrl)))
                                 .orElse(Collections.emptyList()));
 
                 // Fetch DrillItemRow to populate AthleteDrillDetail
@@ -390,7 +400,9 @@ public class AthleteDrillService {
                     String mediaThumbnailUrl = null;
                     if (drillItemRow.get().getMediaId().isPresent()) {
                         UUID mediaId = drillItemRow.get().getMediaId().get();
-                        mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+                        mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
+
+                        // Fallback to old method if new method returns null
                         if (mediaThumbnailUrl == null) {
                             mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
                         }
@@ -516,7 +528,8 @@ public class AthleteDrillService {
                     .max(Comparator.comparing(DrillAttemptHistoryRow::getRecordedAt));
 
             drillDetail.setAttemptHistory(
-                    mostRecentAttempt.map(Collections::singletonList)
+                    mostRecentAttempt
+                            .map(r -> Collections.singletonList(DrillAttemptHistoryResponse.from(r, serverBaseUrl)))
                             .orElse(Collections.emptyList()));
 
             if (drillItemRow.isPresent()) {
@@ -526,7 +539,7 @@ public class AthleteDrillService {
 
                     // Check if thumbnail exists and generate if not
                     // This ensures thumbnail is created from video at gallery/{mediaId}/source.mp4
-                    mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, SERVER_BASE_URL);
+                    mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
 
                     // Fallback to old method if new method returns null
                     if (mediaThumbnailUrl == null) {
@@ -570,9 +583,9 @@ public class AthleteDrillService {
 
         return processedDrillDetails.stream()
                 .sorted((d1, d2) -> {
-                    Optional<DrillAttemptHistoryRow> h1 = d1.getDrillDetail()
+                    Optional<DrillAttemptHistoryResponse> h1 = d1.getDrillDetail()
                             .flatMap(DrillDetail::getMostRecentAttempt);
-                    Optional<DrillAttemptHistoryRow> h2 = d2.getDrillDetail()
+                    Optional<DrillAttemptHistoryResponse> h2 = d2.getDrillDetail()
                             .flatMap(DrillDetail::getMostRecentAttempt);
                     return h2.flatMap(at2 -> h1.map(at1 -> at2.getRecordedAt().compareTo(at1.getRecordedAt())))
                             .orElse(0);
@@ -600,7 +613,7 @@ public class AthleteDrillService {
         } else {
             // Fallback to the old URL format if contentUrl is not available
             logger.warn("Could not find media contentUrl for mediaId: {}, using fallback URL", mediaId);
-            return String.format("%s/media/thumbnail/%s/still-frame.jpg", SERVER_BASE_URL, mediaId.toString());
+            return String.format("%s/media/thumbnail/%s/still-frame.jpg", serverBaseUrl, mediaId.toString());
         }
     }
 
@@ -697,7 +710,7 @@ public class AthleteDrillService {
                         // Use path-based endpoint:
                         // /api/media/gallery/thumbnail/{group}/{drillFolder}/{mediaId}/thumbnail.jpg
                         String url = String.format("%s/api/media/gallery/thumbnail/%s/%s/%s/thumbnail.jpg",
-                                SERVER_BASE_URL, encodedGroup, encodedDrillFolder, encodedMediaId);
+                                serverBaseUrl, encodedGroup, encodedDrillFolder, encodedMediaId);
                         logger.debug("Converted local path {} to URL: {}", localPath, url);
                         return url;
                     } catch (Exception e) {
@@ -713,12 +726,12 @@ public class AthleteDrillService {
             try {
                 String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
                         .replace("+", "%20");
-                String url = String.format("%s/api/media/gallery/thumbnail?path=%s", SERVER_BASE_URL, encodedPath);
+                String url = String.format("%s/api/media/gallery/thumbnail?path=%s", serverBaseUrl, encodedPath);
                 logger.debug("Converted local path {} to URL: {}", localPath, url);
                 return url;
             } catch (Exception e) {
                 logger.warn("Error encoding path: " + relativePath, e);
-                return String.format("%s/api/media/gallery/thumbnail?path=%s", SERVER_BASE_URL, relativePath);
+                return String.format("%s/api/media/gallery/thumbnail?path=%s", serverBaseUrl, relativePath);
             }
         }
 
@@ -727,7 +740,7 @@ public class AthleteDrillService {
         try {
             String encodedPath = java.net.URLEncoder.encode(localPath, java.nio.charset.StandardCharsets.UTF_8)
                     .replace("+", "%20");
-            return String.format("%s/api/media/gallery/thumbnail?path=%s", SERVER_BASE_URL, encodedPath);
+            return String.format("%s/api/media/gallery/thumbnail?path=%s", serverBaseUrl, encodedPath);
         } catch (Exception e) {
             return localPath; // Return original path if we can't convert it
         }
@@ -793,7 +806,7 @@ public class AthleteDrillService {
             } else {
                 // Fallback to the old URL format if contentUrl is not available
                 String drillItemVideoUrl = String.format("%s/api/media/gallery/drill_item/%s/video.mp4",
-                        SERVER_BASE_URL, detail.getDrillItemId().toString());
+                        serverBaseUrl, detail.getDrillItemId().toString());
                 builder.videoUrl(drillItemVideoUrl);
             }
         } else {
@@ -879,12 +892,12 @@ public class AthleteDrillService {
             try {
                 String encodedPath = java.net.URLEncoder.encode(relativePath, java.nio.charset.StandardCharsets.UTF_8)
                         .replace("+", "%20"); // Replace + with %20 for spaces
-                String url = String.format("%s/api/media/gallery/video?path=%s", SERVER_BASE_URL, encodedPath);
+                String url = String.format("%s/api/media/gallery/video?path=%s", serverBaseUrl, encodedPath);
                 logger.debug("Converted local video path {} to URL: {}", localPath, url);
                 return url;
             } catch (Exception e) {
                 logger.warn("Error encoding video path: " + relativePath, e);
-                return String.format("%s/api/media/gallery/video?path=%s", SERVER_BASE_URL, relativePath);
+                return String.format("%s/api/media/gallery/video?path=%s", serverBaseUrl, relativePath);
             }
         }
 
@@ -893,7 +906,7 @@ public class AthleteDrillService {
         try {
             String encodedPath = java.net.URLEncoder.encode(localPath, java.nio.charset.StandardCharsets.UTF_8)
                     .replace("+", "%20");
-            return String.format("%s/api/media/gallery/video?path=%s", SERVER_BASE_URL, encodedPath);
+            return String.format("%s/api/media/gallery/video?path=%s", serverBaseUrl, encodedPath);
         } catch (Exception e) {
             return localPath; // Return original path if we can't convert it
         }

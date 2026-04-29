@@ -10,7 +10,10 @@ INSERT INTO t_drill_attempt_history (
     attempts_reported,
     makes_detected,
     makes_reported,
-    recorded_at
+    recorded_at,
+    version,
+    media_id,
+    attempt_local_id
 ) VALUES (
     :id,
     :userId,
@@ -19,8 +22,20 @@ INSERT INTO t_drill_attempt_history (
     :attemptsReported,
     :makesDetected,
     :makesReported,
-    NOW()
-);
+    NOW(),
+    :version,
+    :mediaId,
+    :attemptLocalId
+)
+ON CONFLICT (attempt_local_id) DO NOTHING;
+>>
+
+updateMediaId() ::=
+<<
+UPDATE t_drill_attempt_history
+   SET media_id = :mediaId
+ WHERE drill_id = :drillId
+   AND version = :version
 >>
 
 findByDrillId() ::=

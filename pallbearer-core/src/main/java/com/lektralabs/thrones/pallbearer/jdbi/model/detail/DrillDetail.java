@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillAttemptHistoryResponse;
 
 @Data
 @Builder
@@ -33,9 +33,9 @@ public class DrillDetail {
     private Integer attemptsReported;
     private Integer makesDetected;
     private Integer makesReported;
-    private List<DrillAttemptHistoryRow> attemptHistory;
+    private List<DrillAttemptHistoryResponse> attemptHistory;
 
-    public Optional<DrillAttemptHistoryRow> getMostRecentAttempt() {
+    public Optional<DrillAttemptHistoryResponse> getMostRecentAttempt() {
         if (attemptHistory == null || attemptHistory.isEmpty()) {
             return Optional.empty();
         }
