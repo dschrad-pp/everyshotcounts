@@ -414,21 +414,32 @@ public class UserService implements CoreConstants, UserPropertyConstants {
         } catch (Exception e) {
             logger.errorf("Keycloak activation failed for user %s: %s",
                     userRow.getId(), e.getMessage());
-            // Check if it's a Keycloak conflict error (email/username already exists)
             String errorMessage = e.getMessage();
             if (errorMessage != null) {
                 String lowerError = errorMessage.toLowerCase();
                 if (lowerError.contains("already in use") || lowerError.contains("user exists")) {
-                    // Extract the specific error from Keycloak
                     if (lowerError.contains("email") || lowerError.contains("user exists with same email")) {
-                        throw new RegistrationException(RegistrationException.EMAIL_COLLISION);
+                        // User already exists in Keycloak from a previous partial activation.
+                        // Look them up and recover the real UUID instead of failing.
+                        logger.infof("User %s already exists in Keycloak — recovering existing UUID", registerUserPartial.getEmail());
+                        try {
+                            FindUserResponse existingKeycloakUser = keycloakProvider.findUser(registerUserPartial);
+                            userRow.setKeycloakId(existingKeycloakUser.getId());
+                            userDao.update(userRow);
+                            logger.infof("Recovered Keycloak ID %s for user %s", existingKeycloakUser.getId(), userRow.getId());
+                        } catch (Exception lookupEx) {
+                            logger.errorf("Could not recover Keycloak user for %s: %s", registerUserPartial.getEmail(), lookupEx.getMessage());
+                            throw new RegistrationException(RegistrationException.EMAIL_COLLISION);
+                        }
                     } else if (lowerError.contains("username")) {
                         throw new RegistrationException(RegistrationException.USERNAME_COLLISION);
                     }
+                } else {
+                    throw new RegistrationException("Keycloak activation failed", e);
                 }
+            } else {
+                throw new RegistrationException("Keycloak activation failed", e);
             }
-            // Generic Keycloak error
-            throw new RegistrationException("Keycloak activation failed", e);
         }
 
         // Finalize activation
