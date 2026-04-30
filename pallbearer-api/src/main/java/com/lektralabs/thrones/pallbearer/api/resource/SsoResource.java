@@ -336,15 +336,6 @@ public class SsoResource {
             } else {
                 logger.info("CRM login: syncing Keycloak password for existing user {}", regUsername);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
-                // Refresh team assignment from CRM data on every login
-                java.util.UUID crmTeamId = registration.getTeamId() != null ? registration.getTeamId().orElse(null) : null;
-                if (crmTeamId != null) {
-                    try {
-                        teamService.mapUserToTeam(userRow.getId(), crmTeamId);
-                    } catch (Exception e) {
-                        logger.warn("CRM login: team mapping refresh failed for {} (non-fatal): {}", regUsername, e.getMessage());
-                    }
-                }
             }
 
             // Step 7: Get token using canonical regUsername
