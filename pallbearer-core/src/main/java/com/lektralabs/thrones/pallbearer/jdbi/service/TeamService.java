@@ -51,6 +51,9 @@ public class TeamService extends TeamBaseService {
     }
 
     public Optional<TeamRow> joinTeamByCode(UUID userId, String joinCode) {
+        if (teamDao.userHasTeam(userId)) {
+            throw new IllegalStateException("ALREADY_ON_TEAM");
+        }
         Optional<TeamRow> team = teamDao.findTeamByJoinCode(joinCode);
         team.ifPresent(t -> mapUserToTeam(userId, t.getId()));
         return team;
@@ -58,6 +61,17 @@ public class TeamService extends TeamBaseService {
 
     public boolean userHasTeam(UUID userId) {
         return teamDao.userHasTeam(userId);
+    }
+
+    public Optional<Map<String, String>> getTeamForAthlete(UUID athleteId) {
+        return teamDao.findTeamByUserId(athleteId).map(team -> Map.of(
+                "teamId", team.getId().toString(),
+                "name",   team.getName().orElse("")
+        ));
+    }
+
+    public boolean removeUserFromTeam(UUID teamId, UUID userId) {
+        return teamDao.removeUserFromTeam(teamId, userId) > 0;
     }
 
     public Optional<String> getJoinCode(UUID teamId) {

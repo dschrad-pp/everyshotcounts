@@ -3,6 +3,7 @@ package com.lektralabs.thrones.pallbearer.api.resource;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
 import com.lektralabs.thrones.pallbearer.security.CurrentUserUtils;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -29,6 +30,9 @@ public class AthleteResource {
     AthleteService athleteService;
 
     @Inject
+    TeamService teamService;
+
+    @Inject
     CurrentUserUtils currentUserUtils;
 
     @GET
@@ -38,6 +42,16 @@ public class AthleteResource {
     public Response findByAthleteId(@PathParam("athleteId") UUID athleteId) {
         return athleteService.findByAthleteId(athleteId)
                 .map(row -> Response.ok(row).build())
+                .orElseGet(() -> Response.noContent().build());
+    }
+
+    @GET
+    @Path("/{athleteId}/team")
+    @RolesAllowed({"ADMIN", "ATHLETE", "COACH"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getTeamForAthlete(@PathParam("athleteId") UUID athleteId) {
+        return teamService.getTeamForAthlete(athleteId)
+                .map(team -> Response.ok(team).build())
                 .orElseGet(() -> Response.noContent().build());
     }
 

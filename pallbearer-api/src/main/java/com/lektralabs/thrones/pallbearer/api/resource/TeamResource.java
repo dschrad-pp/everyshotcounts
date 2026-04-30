@@ -80,11 +80,34 @@ public class TeamResource {
                     .build();
         }
         CurrentUser currentUser = userService.getCurrentUser();
-        return teamService.joinTeamByCode(currentUser.getId(), request.getJoinCode())
-                .map(team -> Response.ok(team).build())
-                .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
-                        .entity(Map.of("error", "Invalid join code"))
-                        .build());
+        try {
+            return teamService.joinTeamByCode(currentUser.getId(), request.getJoinCode())
+                    .map(team -> Response.ok(team).build())
+                    .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
+                            .entity(Map.of("error", "Invalid join code"))
+                            .build());
+        } catch (IllegalStateException e) {
+            if ("ALREADY_ON_TEAM".equals(e.getMessage())) {
+                return Response.status(Response.Status.CONFLICT)
+                        .entity(Map.of("error", "You are already on a team"))
+                        .build();
+            }
+            throw e;
+        }
+    }
+
+    @DELETE
+    @Path("/{teamId}/member/{userId}")
+    @RolesAllowed({"ADMIN", "COACH"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeTeamMember(@PathParam("teamId") UUID teamId, @PathParam("userId") UUID userId) {
+        boolean removed = teamService.removeUserFromTeam(teamId, userId);
+        if (removed) {
+            return Response.ok(Map.of("message", "Member removed from team")).build();
+        }
+        return Response.status(Response.Status.NOT_FOUND)
+                .entity(Map.of("error", "Member not found on this team"))
+                .build();
     }
 
     @PUT

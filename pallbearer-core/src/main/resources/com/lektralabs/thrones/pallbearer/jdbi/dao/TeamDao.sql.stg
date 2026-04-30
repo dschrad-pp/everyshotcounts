@@ -45,3 +45,9 @@ findTeamByUserId() ::= <<
      WHERE xref.user_id = :userId
      LIMIT 1
 >>
+
+removeUserFromTeam() ::= <<
+    DELETE FROM t_team_user_xref
+     WHERE team_id = :teamId
+       AND user_id = :userId
+>>

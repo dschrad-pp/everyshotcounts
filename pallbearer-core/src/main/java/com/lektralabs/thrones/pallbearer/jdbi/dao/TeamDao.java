@@ -32,4 +32,7 @@ public interface TeamDao {
     @SqlQuery("findTeamByUserId")
     Optional<TeamRow> findTeamByUserId(@Bind("userId") UUID userId);
 
+    @SqlUpdate("removeUserFromTeam")
+    int removeUserFromTeam(@Bind("teamId") UUID teamId, @Bind("userId") UUID userId);
+
 }
