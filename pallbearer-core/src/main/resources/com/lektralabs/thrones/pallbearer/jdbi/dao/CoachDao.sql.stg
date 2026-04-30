@@ -1,7 +1,7 @@
 group Coachdao;
 
 selectByUsername(username) ::= <<
-SELECT
+SELECT DISTINCT
     u.id                   AS id,
     u.email                AS email,
     u.user_alias           AS userAlias,

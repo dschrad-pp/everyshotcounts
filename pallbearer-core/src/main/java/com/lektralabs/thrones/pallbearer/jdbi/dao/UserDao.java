@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public interface UserDao {
 
-    @SqlUpdate("INSERT INTO t_user_role_xref (user_id, role_id) VALUES (:userId, :roleId)")
+    @SqlUpdate("INSERT INTO t_user_role_xref (user_id, role_id) VALUES (:userId, :roleId) ON CONFLICT DO NOTHING")
     @Transaction(TransactionIsolationLevel.SERIALIZABLE)
     int associateRole(UUID userId, UUID roleId);
 
