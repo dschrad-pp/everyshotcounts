@@ -64,10 +64,14 @@ public class TeamService extends TeamBaseService {
     }
 
     public Optional<Map<String, String>> getTeamForAthlete(UUID athleteId) {
-        return teamDao.findTeamByUserId(athleteId).map(team -> Map.of(
-                "teamId", team.getId().toString(),
-                "name",   team.getName().orElse("")
-        ));
+        return teamDao.findTeamByUserId(athleteId).map(team -> {
+            String coachName = teamDao.findCoachNameByTeamId(team.getId()).orElse("");
+            return Map.of(
+                "teamId",    team.getId().toString(),
+                "name",      team.getName().orElse(""),
+                "coachName", coachName
+            );
+        });
     }
 
     public boolean removeUserFromTeam(UUID teamId, UUID userId) {
