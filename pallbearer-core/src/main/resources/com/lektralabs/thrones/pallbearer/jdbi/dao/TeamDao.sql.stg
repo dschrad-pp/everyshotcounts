@@ -33,3 +33,15 @@ userHasTeam() ::= <<
          WHERE user_id = :userId
     )
 >>
+
+findTeamByUserId() ::= <<
+    SELECT t.id
+         , t.sport_id
+         , t.organization_id
+         , t.name
+         , t.description
+      FROM t_team t
+      JOIN t_team_user_xref xref ON t.id = xref.team_id
+     WHERE xref.user_id = :userId
+     LIMIT 1
+>>

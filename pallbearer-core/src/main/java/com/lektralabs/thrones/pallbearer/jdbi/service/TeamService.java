@@ -64,6 +64,23 @@ public class TeamService extends TeamBaseService {
         return teamDao.findJoinCodeByTeamId(teamId);
     }
 
+    public Optional<Map<String, String>> getTeamForCoach(UUID coachId) {
+        return teamDao.findTeamByUserId(coachId).map(team -> {
+            String joinCode = teamDao.findJoinCodeByTeamId(team.getId()).orElseGet(() -> {
+                // Old team with no join code — generate one now
+                String newCode = generateUniqueJoinCode();
+                teamDao.insertJoinCode(team.getId(), newCode);
+                logger.infof("Auto-generated join code %s for existing team %s", newCode, team.getId());
+                return newCode;
+            });
+            return Map.of(
+                "teamId",   team.getId().toString(),
+                "name",     team.getName().orElse(""),
+                "joinCode", joinCode
+            );
+        });
+    }
+
     private String generateUniqueJoinCode() {
         SecureRandom rng = new SecureRandom();
         String candidate;

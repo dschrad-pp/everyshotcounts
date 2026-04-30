@@ -28,4 +28,8 @@ public interface TeamDao {
     @SqlQuery("userHasTeam")
     boolean userHasTeam(@Bind("userId") UUID userId);
 
+    @RegisterBeanMapper(TeamRow.class)
+    @SqlQuery("findTeamByUserId")
+    Optional<TeamRow> findTeamByUserId(@Bind("userId") UUID userId);
+
 }

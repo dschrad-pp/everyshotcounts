@@ -11,6 +11,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.service.CoachDrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -32,6 +33,9 @@ public class CoachResource {
     @Inject
     AthleteDrillService athleteDrillService;
 
+    @Inject
+    TeamService teamService;
+
     @GET
     @Path("/{coachId}")
     @RolesAllowed({ "ADMIN", "ATHLETE", "COACH", "FAN", "USER" })
@@ -44,6 +48,16 @@ public class CoachResource {
                         new GenericApiResponse<>(200, "Successfully fetched coach partial", coachPartial)).build())
                 .orElseGet(() -> Response.status(404)
                         .entity(new GenericApiResponse<>(404, "Coach not found", null)).build());
+    }
+
+    @GET
+    @Path("/{coachId}/team")
+    @RolesAllowed({ "ADMIN", "COACH" })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getTeamForCoach(@PathParam("coachId") UUID coachId) {
+        return teamService.getTeamForCoach(coachId)
+                .map(team -> Response.ok(new GenericApiResponse<>(200, "Successfully fetched team", team)).build())
+                .orElseGet(() -> Response.noContent().build());
     }
 
     @GET
