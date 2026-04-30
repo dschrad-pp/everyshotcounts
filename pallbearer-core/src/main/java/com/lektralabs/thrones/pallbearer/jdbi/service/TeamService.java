@@ -60,6 +60,10 @@ public class TeamService extends TeamBaseService {
         return teamDao.userHasTeam(userId);
     }
 
+    public Optional<String> getJoinCode(UUID teamId) {
+        return teamDao.findJoinCodeByTeamId(teamId);
+    }
+
     private String generateUniqueJoinCode() {
         SecureRandom rng = new SecureRandom();
         String candidate;

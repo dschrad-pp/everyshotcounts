@@ -39,6 +39,18 @@ public class TeamResource {
                 .orElseGet(() -> Response.noContent().build());
     }
 
+    @GET
+    @Path("/{teamId}/join-code")
+    @RolesAllowed({"ADMIN", "COACH"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getJoinCode(@PathParam("teamId") UUID teamId) {
+        return teamService.getJoinCode(teamId)
+                .map(code -> Response.ok(Map.of("joinCode", code)).build())
+                .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
+                        .entity(Map.of("error", "No join code found for this team"))
+                        .build());
+    }
+
     @POST
     @Path("/")
     @RolesAllowed({"ADMIN", "COACH"})
