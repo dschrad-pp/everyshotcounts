@@ -579,8 +579,13 @@ public class DrillResource {
             }
 
             if (request.getVersion() != null) {
-                drillService.updateAttemptMediaId(drillId, request.getMediaId(), request.getVersion());
-                logger.info("✅ MediaId updated for drillId={}, mediaId={}, version={}", drillId, request.getMediaId(), request.getVersion());
+                int updated = drillService.updateAttemptMediaId(drillId, request.getMediaId(), request.getVersion());
+                if (updated == 0) {
+                    logger.warn("⚠️ Version {} matched 0 rows for drillId={}, falling back to latest attempt", request.getVersion(), drillId);
+                    drillService.updateLatestAttemptMediaId(drillId, request.getMediaId());
+                } else {
+                    logger.info("✅ MediaId updated for drillId={}, mediaId={}, version={}", drillId, request.getMediaId(), request.getVersion());
+                }
             } else {
                 drillService.updateLatestAttemptMediaId(drillId, request.getMediaId());
                 logger.info("✅ MediaId updated for drillId={}, mediaId={} (no version — back-filled latest attempt)", drillId, request.getMediaId());
