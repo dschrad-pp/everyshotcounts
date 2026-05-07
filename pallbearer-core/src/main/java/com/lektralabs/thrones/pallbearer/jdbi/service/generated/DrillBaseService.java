@@ -23,10 +23,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.lektralabs.thrones.pallbearer.common.DrillStatusConstants;
-import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
-import com.lektralabs.thrones.pallbearer.jdbi.service.DrillAttemptHistoryService;
-
 // This is generated code. Do not modify - it will be overwritten. See the extending class.
 @ApplicationScoped
 public class DrillBaseService {
@@ -38,9 +34,6 @@ public class DrillBaseService {
 
     @Inject
     protected UserService userService;
-
-    @Inject
-    protected DrillAttemptHistoryService drillAttemptHistoryService;
 
     private DrillBaseDao drillBaseDao;
 
@@ -98,15 +91,6 @@ public class DrillBaseService {
                     DrillRow updatedDrill = drillBaseDao.findById(drillPartial.getDrillId().get())
                             .orElseThrow(() -> new IllegalStateException("Drill not found after update"));
 
-                    String newStatus = updatedDrill.getDrillStatus();
-                    if (!DrillStatusConstants.NOT_ATTEMPTED.equals(newStatus) && !currentVersion.equals(updatedDrill.getVersion())) {
-                        recordDrillHistory(updatedDrill,
-                                "Drill updated with status=" + newStatus);
-                    } else {
-                        logger.info("Skipping attempt history recording for drillId={} due to status=NOT-ATTEMPTED",
-                                updatedDrill.getId());
-                    }
-
                     return updateResult;
                 });
             } catch (TransactionException e) {
@@ -131,26 +115,7 @@ public class DrillBaseService {
         }
     }
 
-    private void recordDrillHistory(DrillRow drill, String changeReason) {
-        DrillAttemptHistoryRow historyRow = DrillAttemptHistoryRow.builder()
-                .id(UUID.randomUUID())
-                .drillId(drill.getId())
-                .userId(drill.getUserId())
-                .attemptsDetected(drill.getAttemptsDetected())
-                .attemptsReported(drill.getAttemptsReported())
-                .makesDetected(drill.getMakesDetected())
-                .makesReported(drill.getMakesReported())
-                .version(drill.getVersion())
-                // attemptLocalId not available from DrillRow — left null so ON CONFLICT does not apply
-                .attemptLocalId(null)
-                .build();
-
-        drillAttemptHistoryService.insertHistory(historyRow);
-        logger.info("Recorded drill history for drillId={}, version={}, reason={}",
-                drill.getId(), drill.getVersion(), changeReason);
-    }
-
-    public Optional<DrillRow> findById(UUID id) {
+public Optional<DrillRow> findById(UUID id) {
         return drillBaseDao.findById(id);
     }
 

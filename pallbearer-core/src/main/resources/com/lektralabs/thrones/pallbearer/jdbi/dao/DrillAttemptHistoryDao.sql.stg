@@ -13,7 +13,8 @@ INSERT INTO t_drill_attempt_history (
     recorded_at,
     version,
     media_id,
-    attempt_local_id
+    attempt_local_id,
+    attempt_number
 ) VALUES (
     :id,
     :userId,
@@ -25,7 +26,8 @@ INSERT INTO t_drill_attempt_history (
     NOW(),
     :version,
     :mediaId,
-    :attemptLocalId
+    :attemptLocalId,
+    :attemptNumber
 )
 ON CONFLICT (attempt_local_id) DO NOTHING;
 >>
@@ -61,4 +63,12 @@ FROM t_drill_attempt_history
 WHERE drill_id = :drillId
   AND user_id = :userId
 ORDER BY recorded_at DESC;
+>>
+
+getAttemptCount() ::=
+<<
+SELECT COUNT(*)
+FROM t_drill_attempt_history
+WHERE user_id = :userId
+  AND drill_id = :drillId;
 >>

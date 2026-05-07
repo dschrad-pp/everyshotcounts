@@ -26,6 +26,7 @@ public class DrillAttemptHistoryRow implements Serializable {
     private Integer version;
     private UUID mediaId;
     private String attemptLocalId;
+    private Integer attemptNumber;
 
     private static final long serialVersionUID = 1L;
 

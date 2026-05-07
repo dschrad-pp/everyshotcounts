@@ -207,6 +207,7 @@ public class AthleteDrillItemProgressManager {
     private void insertAttemptHistory(UUID drillId, UUID userId, DrillPartial partial,
             UUID mediaId, Integer version) {
         try {
+            int attemptNumber = drillAttemptHistoryService.getAttemptCount(userId, drillId) + 1;
             DrillAttemptHistoryRow row = DrillAttemptHistoryRow.builder()
                     .id(UUID.randomUUID())
                     .drillId(drillId)
@@ -218,9 +219,10 @@ public class AthleteDrillItemProgressManager {
                     .mediaId(mediaId)
                     .version(version)
                     .attemptLocalId(partial.getAttemptLocalId())
+                    .attemptNumber(attemptNumber)
                     .build();
             drillAttemptHistoryService.insertHistory(row);
-            logger.info("📋 Inserted attempt history row for DrillId={}, UserId={}, AttemptLocalId={}", drillId, userId, partial.getAttemptLocalId());
+            logger.info("📋 Inserted attempt history row for DrillId={}, UserId={}, AttemptLocalId={}, AttemptNumber={}", drillId, userId, partial.getAttemptLocalId(), attemptNumber);
         } catch (Exception e) {
             logger.error("❌ Failed to insert attempt history for DrillId={}, UserId={}", drillId, userId, e);
         }
