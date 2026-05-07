@@ -42,6 +42,10 @@ public interface DrillAttemptHistoryDao {
     int updateMediaId(@Bind("drillId") UUID drillId, @Bind("mediaId") UUID mediaId, @Bind("version") int version);
 
     @UseStringTemplateSqlLocator
+    @SqlUpdate("updateLatestAttemptMediaId")
+    int updateLatestAttemptMediaId(@Bind("drillId") UUID drillId, @Bind("mediaId") UUID mediaId);
+
+    @UseStringTemplateSqlLocator
     @SqlQuery("getAttemptCount")
     int getAttemptCount(@Bind("userId") UUID userId, @Bind("drillId") UUID drillId);
 }

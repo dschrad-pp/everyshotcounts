@@ -40,6 +40,14 @@ UPDATE t_drill_attempt_history
    AND version = :version
 >>
 
+updateLatestAttemptMediaId() ::=
+<<
+UPDATE t_drill_attempt_history
+   SET media_id = :mediaId
+ WHERE drill_id = :drillId
+   AND attempt_number = (SELECT MAX(attempt_number) FROM t_drill_attempt_history WHERE drill_id = :drillId)
+>>
+
 findByDrillId() ::=
 <<
 SELECT *

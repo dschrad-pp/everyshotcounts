@@ -61,6 +61,11 @@ public class DrillAttemptHistoryService {
         return drillAttemptHistoryDao.updateMediaId(drillId, mediaId, version);
     }
 
+    public int updateLatestAttemptMediaId(UUID drillId, UUID mediaId) {
+        logger.debug("Updating mediaId on latest attempt for drillId={}", drillId);
+        return drillAttemptHistoryDao.updateLatestAttemptMediaId(drillId, mediaId);
+    }
+
     public int getAttemptCount(UUID userId, UUID drillId) {
         return drillAttemptHistoryDao.getAttemptCount(userId, drillId);
     }
