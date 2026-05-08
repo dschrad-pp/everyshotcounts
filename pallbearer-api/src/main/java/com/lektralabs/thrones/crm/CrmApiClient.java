@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+//adding a commen to test ci/cd flow
 @jakarta.enterprise.context.ApplicationScoped
 public class CrmApiClient {
     private static final Logger logger = Logger.getLogger(CrmApiClient.class);
