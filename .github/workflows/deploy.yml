@@ -1,0 +1,44 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - feat/development
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Lint (compile + enforcer checks)
+        run: mvn clean compile --fail-at-end
+
+      - name: Test
+        run: mvn test --fail-at-end
+
+      - name: Build
+        run: mvn package -DskipTests
+
+      - name: Deploy to EC2
+        if: success()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /var/www/html/pallbearer
+            git pull origin feat/development
+            mvn clean install -DskipTests=true
+            sudo systemctl restart quarkus-backend.service
+            sudo systemctl status quarkus-backend.service

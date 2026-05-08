@@ -560,15 +560,19 @@ public class DrillResource {
                         .build();
             }
 
-            java.util.Optional<DrillRow> drillRowOpt = drillService.findByDrillItemIdAndUserId(drillItemId, userId);
-            if (drillRowOpt == null || drillRowOpt.isEmpty()) {
-                logger.error("❌ Drill not found for drillItemId={}, userId={}", drillItemId, userId);
-                return Response.status(404)
-                        .entity(new GenericApiResponse<>(404, "Drill not found", null))
-                        .build();
+            UUID drillId;
+            if (request.getDrillId() != null) {
+                drillId = request.getDrillId();
+            } else {
+                java.util.Optional<DrillRow> drillRowOpt = drillService.findByDrillItemIdAndUserId(drillItemId, userId);
+                if (drillRowOpt == null || drillRowOpt.isEmpty()) {
+                    logger.error("❌ Drill not found for drillItemId={}, userId={}", drillItemId, userId);
+                    return Response.status(404)
+                            .entity(new GenericApiResponse<>(404, "Drill not found", null))
+                            .build();
+                }
+                drillId = drillRowOpt.get().getId();
             }
-
-            UUID drillId = drillRowOpt.get().getId();
             int result = drillService.updateMediaId(drillId, request.getMediaId());
 
             if (result == 0) {
