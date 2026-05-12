@@ -32,6 +32,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillAttemptHistoryResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.TagRow;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
