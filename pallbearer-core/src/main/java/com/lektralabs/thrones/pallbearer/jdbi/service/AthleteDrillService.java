@@ -38,9 +38,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * Provides search and submit business logic for drills in the context of an
@@ -77,6 +81,9 @@ public class AthleteDrillService {
 
     @Inject
     MediaService mediaService;
+
+    @Inject
+    DrillTagService drillTagService;
 
     private AthleteDrillDetailDao athleteDrillDetailDao;
 
@@ -957,6 +964,29 @@ public class AthleteDrillService {
         }
 
         return allDrills;
+    }
+
+    public List<AthleteDrillDetail> findCompletedDrillsForAthleteUnderCoach(
+        UUID coachId, UUID athleteId, UUID drillGroupId, List<String> tagCodes, int page, int limit) {
+        List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
+        boolean isAssigned = assignedAthletes.stream().anyMatch(a -> a.getUserId().equals(athleteId));
+        if (!isAssigned) {
+            return Collections.emptyList();
+        }
+
+        int offset = page * limit;
+        List<AthleteDrillDetail> results = athleteDrillDetailDao.getCompletedByAthleteWithFilters(
+                athleteId, drillGroupId, (tagCodes == null || tagCodes.isEmpty()) ? null : tagCodes, limit, offset);
+
+        // attach tags to each result
+        List<UUID> drillItemIds = results.stream()
+            .map(AthleteDrillDetail::getDrillItemId)
+            .collect(Collectors.toList());
+        Map<UUID, List<TagRow>> tagsByDrillItem = drillTagService.getTagsForDrillItems(drillItemIds);
+        results.forEach(detail ->
+            detail.setTags(tagsByDrillItem.getOrDefault(detail.getDrillItemId(), Collections.emptyList())));
+
+        return results;
     }
 
     /**

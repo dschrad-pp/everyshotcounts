@@ -12,6 +12,12 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.UseRowReducer;
 import org.jdbi.v3.stringtemplate4.UseStringTemplateSqlLocator;
 
+
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.customizer.BindList;
+import org.jdbi.v3.sqlobject.customizer.Define;
+
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,4 +91,21 @@ public interface AthleteDrillDetailDao {
                                                      UUID drillGroupId,
                                                      Integer levelIndex,
                                                      FindOptions findOptions);
+
+    @RegisterBeanMapper(value = AthleteDrillDetail.class, prefix = "di")
+    @RegisterBeanMapper(value = DrillDetail.class, prefix = "dr")
+    @RegisterBeanMapper(value = UserDetail.class, prefix = "cu")
+    @RegisterBeanMapper(value = ContactItem.class, prefix = "cc")
+    @RegisterBeanMapper(value = UserDetail.class, prefix = "mu")
+    @RegisterBeanMapper(value = ContactItem.class, prefix = "mc")
+    @RegisterBeanMapper(value = DrillGroupRow.class, prefix = "dg")
+    @UseStringTemplateSqlLocator
+    @SqlQuery("getCompletedByAthleteWithFilters")
+    @UseRowReducer(AthleteDrillDetailRowReducer.class)
+    List<AthleteDrillDetail> getCompletedByAthleteWithFilters(
+            @Bind("athleteUserId") UUID athleteUserId,
+            @Define("drillGroupId") @Bind("drillGroupId") UUID drillGroupId,
+            @Define("tagCodes") @BindList(value = "tagCodes", onEmpty = BindList.EmptyHandling.NULL) List<String> tagCodes,
+            @Bind("limit") int limit,
+            @Bind("offset") int offset);
 }

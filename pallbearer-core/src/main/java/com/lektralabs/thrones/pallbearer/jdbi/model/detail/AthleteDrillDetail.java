@@ -11,6 +11,11 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.generated.MediaRow;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.TagRow;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Provides a composite data model for an athlete drill that combines the drill
  * item definition with an optional athlete drill submission detail
@@ -68,4 +73,6 @@ public class AthleteDrillDetail {
     private Boolean isLocked;
 
     private String mediaThumbnail;
+
+    private List<TagRow> tags = new ArrayList<>();
 }
