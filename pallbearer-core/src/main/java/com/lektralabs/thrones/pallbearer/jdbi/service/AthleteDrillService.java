@@ -968,7 +968,7 @@ public class AthleteDrillService {
     }
 
     public List<AthleteDrillDetail> findCompletedDrillsForAthleteUnderCoach(
-        UUID coachId, UUID athleteId, UUID drillGroupId, List<String> tagCodes, int page, int limit) {
+        UUID coachId, UUID athleteId, List<String> tagCodes, int page, int limit) {
         List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
         boolean isAssigned = assignedAthletes.stream().anyMatch(a -> a.getUserId().equals(athleteId));
         if (!isAssigned) {
@@ -977,7 +977,7 @@ public class AthleteDrillService {
 
         int offset = page * limit;
         List<AthleteDrillDetail> results = athleteDrillDetailDao.getCompletedByAthleteWithFilters(
-                athleteId, drillGroupId, (tagCodes == null || tagCodes.isEmpty()) ? null : tagCodes, limit, offset);
+                athleteId, (tagCodes == null || tagCodes.isEmpty()) ? null : tagCodes, limit, offset);
 
         // attach tags to each result
         List<UUID> drillItemIds = results.stream()

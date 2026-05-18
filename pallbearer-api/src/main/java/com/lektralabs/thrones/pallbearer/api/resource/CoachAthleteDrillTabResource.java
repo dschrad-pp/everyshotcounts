@@ -24,13 +24,12 @@ public class CoachAthleteDrillTabResource {
     public Response getCompletedDrillsForAthlete(
             @PathParam("coachId") UUID coachId,
             @PathParam("athleteId") UUID athleteId,
-            @QueryParam("drillGroupId") UUID drillGroupId,
             @QueryParam("tagCodes") List<String> tagCodes,
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("limit") @DefaultValue("20") int limit) {
 
         List<AthleteDrillDetail> drills = athleteDrillService
-                .findCompletedDrillsForAthleteUnderCoach(coachId, athleteId, drillGroupId, tagCodes, page, limit);
+                .findCompletedDrillsForAthleteUnderCoach(coachId, athleteId, tagCodes, page, limit);
 
         return Response.ok(new GenericApiResponse<>(200,
                 drills.isEmpty() ? "No completed drills found" : "Successfully fetched completed drills",

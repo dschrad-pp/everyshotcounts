@@ -474,9 +474,6 @@ getCompletedByAthleteWithFilters() ::= <<
    JOIN t_user mu ON mu.id = dr.modified_by_id
    JOIN t_contact mc ON mc.id = mu.contact_id
   WHERE dr.drill_status = 'COMPLETE'
-  <if(drillGroupId)>
-    AND dg.id = :drillGroupId
-  <endif>
   <if(tagCodes)>
     AND di.id IN (
         SELECT dit.drill_item_id
