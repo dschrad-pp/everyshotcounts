@@ -977,12 +977,10 @@ public class AthleteDrillService {
 
         int offset = page * limit;
         List<String> normalizedTagCodes = (tagCodes == null || tagCodes.isEmpty()) ? null : tagCodes;
-        List<AthleteDrillDetail> results = athleteDrillDetailDao.getCompletedByAthleteWithFilters(
-                athleteId,
-                normalizedTagCodes != null,
-                normalizedTagCodes != null ? normalizedTagCodes.size() : 0,
-                normalizedTagCodes,
-                limit, offset);
+        List<AthleteDrillDetail> results = normalizedTagCodes == null
+                ? athleteDrillDetailDao.getCompletedByAthleteWithFilters(athleteId, limit, offset)
+                : athleteDrillDetailDao.getCompletedByAthleteWithTagFilter(
+                        athleteId, normalizedTagCodes, normalizedTagCodes.size(), limit, offset);
 
         // attach tags to each result
         List<UUID> drillItemIds = results.stream()

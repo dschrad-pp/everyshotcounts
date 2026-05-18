@@ -15,8 +15,6 @@ import org.jdbi.v3.stringtemplate4.UseStringTemplateSqlLocator;
 
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindList;
-import org.jdbi.v3.sqlobject.customizer.Define;
-
 
 import java.util.List;
 import java.util.Optional;
@@ -104,9 +102,23 @@ public interface AthleteDrillDetailDao {
     @UseRowReducer(AthleteDrillDetailRowReducer.class)
     List<AthleteDrillDetail> getCompletedByAthleteWithFilters(
             @Bind("athleteUserId") UUID athleteUserId,
-            @Define("filterByTagCodes") boolean filterByTagCodes,
-            @Bind("tagCodeCount") int tagCodeCount,
+            @Bind("limit") int limit,
+            @Bind("offset") int offset);
+
+    @RegisterBeanMapper(value = AthleteDrillDetail.class, prefix = "di")
+    @RegisterBeanMapper(value = DrillDetail.class, prefix = "dr")
+    @RegisterBeanMapper(value = UserDetail.class, prefix = "cu")
+    @RegisterBeanMapper(value = ContactItem.class, prefix = "cc")
+    @RegisterBeanMapper(value = UserDetail.class, prefix = "mu")
+    @RegisterBeanMapper(value = ContactItem.class, prefix = "mc")
+    @RegisterBeanMapper(value = DrillGroupRow.class, prefix = "dg")
+    @UseStringTemplateSqlLocator
+    @SqlQuery("getCompletedByAthleteWithTagFilter")
+    @UseRowReducer(AthleteDrillDetailRowReducer.class)
+    List<AthleteDrillDetail> getCompletedByAthleteWithTagFilter(
+            @Bind("athleteUserId") UUID athleteUserId,
             @BindList(value = "tagCodes", onEmpty = BindList.EmptyHandling.NULL) List<String> tagCodes,
+            @Bind("tagCodeCount") int tagCodeCount,
             @Bind("limit") int limit,
             @Bind("offset") int offset);
 }
