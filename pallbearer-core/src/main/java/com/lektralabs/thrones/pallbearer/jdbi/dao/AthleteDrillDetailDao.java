@@ -104,7 +104,9 @@ public interface AthleteDrillDetailDao {
     @UseRowReducer(AthleteDrillDetailRowReducer.class)
     List<AthleteDrillDetail> getCompletedByAthleteWithFilters(
             @Bind("athleteUserId") UUID athleteUserId,
-            @Define("tagCodes") @BindList(value = "tagCodes", onEmpty = BindList.EmptyHandling.NULL) List<String> tagCodes,
+            @Define("filterByTagCodes") boolean filterByTagCodes,
+            @Bind("tagCodeCount") int tagCodeCount,
+            @BindList(value = "tagCodes", onEmpty = BindList.EmptyHandling.NULL) List<String> tagCodes,
             @Bind("limit") int limit,
             @Bind("offset") int offset);
 }
