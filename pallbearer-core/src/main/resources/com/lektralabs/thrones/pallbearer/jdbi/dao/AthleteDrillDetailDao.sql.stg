@@ -398,7 +398,7 @@ getByAthleteGroupAndLevel() ::= <<
   ORDER BY di.order_index
 >>
 
-getCompletedByAthleteWithFilters(filterByTagCodes) ::= <<
+getCompletedByAthleteWithFilters ::= <<
   SELECT di.id                       AS "di_drillItemId"
        , di.team_id                  AS "di_teamId"
        , di.name                     AS "di_name"
