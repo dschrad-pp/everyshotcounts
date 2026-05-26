@@ -33,4 +33,11 @@ public interface CoachDao {
     @SqlQuery("selectAllAthletesAssignedToCoach")
     @AllowUnusedBindings
     List<AthleteDetail> selectAllAthletesAssignedToCoach(@Bind("coachId") UUID coachId);
+
+    @RegisterBeanMapper(value = AthleteDetail.class, prefix = "au")
+    @RegisterBeanMapper(value = ContactItem.class, prefix = "ac")
+    @UseRowReducer(AthleteDetailRowReducer.class)
+    @SqlQuery("selectAthleteAssignedToCoach")
+    @AllowUnusedBindings
+    List<AthleteDetail> selectAthleteAssignedToCoach(@Bind("coachId") UUID coachId, @Bind("athleteId") UUID athleteId);
 }

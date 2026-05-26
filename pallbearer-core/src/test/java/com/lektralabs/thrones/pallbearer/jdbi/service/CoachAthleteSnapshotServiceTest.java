@@ -1,0 +1,150 @@
+package com.lektralabs.thrones.pallbearer.jdbi.service;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class CoachAthleteSnapshotServiceTest {
+
+    // ── buildLevelLabel ──────────────────────────────────────────────────────
+
+    @ParameterizedTest(name = "orderIndex={0} → {1}")
+    @CsvSource({
+        "1,  Level 1",
+        "2,  Level 2",
+        "3,  Test 1",
+        "4,  Level 4",
+        "5,  Level 5",
+        "6,  Test 2",
+        "9,  Test 3",
+        "12, Test 4"
+    })
+    void buildLevelLabel_returnsCorrectLabel(int orderIndex, String expected) {
+        assertEquals(expected, CoachAthleteSnapshotService.buildLevelLabel(orderIndex));
+    }
+
+    @Test
+    void buildLevelLabel_zeroIndex_returnsLevelZero() {
+        assertEquals("Level 0", CoachAthleteSnapshotService.buildLevelLabel(0));
+    }
+
+    // ── computeMakePercent ───────────────────────────────────────────────────
+
+    @Test
+    void computeMakePercent_zeroAttempts_returnsZero() {
+        assertEquals(0, CoachAthleteSnapshotService.computeMakePercent(0, 0));
+        assertEquals(0, CoachAthleteSnapshotService.computeMakePercent(5, 0));
+    }
+
+    @Test
+    void computeMakePercent_allMakes_returns100() {
+        assertEquals(100, CoachAthleteSnapshotService.computeMakePercent(10, 10));
+    }
+
+    @Test
+    void computeMakePercent_halfMakes_returns50() {
+        assertEquals(50, CoachAthleteSnapshotService.computeMakePercent(5, 10));
+    }
+
+    @Test
+    void computeMakePercent_roundsCorrectly() {
+        assertEquals(67, CoachAthleteSnapshotService.computeMakePercent(2, 3));
+        assertEquals(33, CoachAthleteSnapshotService.computeMakePercent(1, 3));
+    }
+
+    @Test
+    void computeMakePercent_clampedAt100() {
+        assertEquals(100, CoachAthleteSnapshotService.computeMakePercent(200, 100));
+    }
+
+    @Test
+    void computeMakePercent_clampedAt0() {
+        assertEquals(0, CoachAthleteSnapshotService.computeMakePercent(-5, 10));
+    }
+
+    // ── translateToDbTagCodes ────────────────────────────────────────────────
+
+    private final CoachAthleteSnapshotService service = new CoachAthleteSnapshotService();
+
+    @Test
+    void translateToDbTagCodes_nullInput_returnsNull() {
+        assertNull(service.translateToDbTagCodes(null));
+    }
+
+    @Test
+    void translateToDbTagCodes_emptyInput_returnsNull() {
+        assertNull(service.translateToDbTagCodes(List.of()));
+    }
+
+    @Test
+    void translateToDbTagCodes_pullUp_expandsToBothSides() {
+        List<String> result = service.translateToDbTagCodes(List.of("PULL_UP"));
+        assertNotNull(result);
+        assertTrue(result.containsAll(List.of("PULL_UP_L", "PULL_UP_R")));
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void translateToDbTagCodes_stepBack_expandsToBothSides() {
+        List<String> result = service.translateToDbTagCodes(List.of("STEP_BACK"));
+        assertNotNull(result);
+        assertTrue(result.containsAll(List.of("STEP_BACK_L", "STEP_BACK_R")));
+    }
+
+    @Test
+    void translateToDbTagCodes_shooting_expandsToBothCodes() {
+        List<String> result = service.translateToDbTagCodes(List.of("SHOOTING"));
+        assertNotNull(result);
+        assertTrue(result.containsAll(List.of("15FT", "DEPTH_SHOOTING")));
+    }
+
+    @Test
+    void translateToDbTagCodes_threePoint_returnsSingleCode() {
+        List<String> result = service.translateToDbTagCodes(List.of("THREE_POINT"));
+        assertNotNull(result);
+        assertEquals(List.of("3PT"), result);
+    }
+
+    @Test
+    void translateToDbTagCodes_catchShoot_returnsSingleCode() {
+        List<String> result = service.translateToDbTagCodes(List.of("CATCH_SHOOT"));
+        assertNotNull(result);
+        assertEquals(List.of("CATCH_AND_SHOOT"), result);
+    }
+
+    @Test
+    void translateToDbTagCodes_footwork_returnsNullBecauseNoDbTags() {
+        assertNull(service.translateToDbTagCodes(List.of("FOOTWORK")));
+    }
+
+    @Test
+    void translateToDbTagCodes_unknownCode_returnsNull() {
+        assertNull(service.translateToDbTagCodes(List.of("UNKNOWN_SKILL")));
+    }
+
+    @Test
+    void translateToDbTagCodes_caseInsensitiveInput() {
+        List<String> result = service.translateToDbTagCodes(List.of("pull_up"));
+        assertNotNull(result);
+        assertTrue(result.containsAll(List.of("PULL_UP_L", "PULL_UP_R")));
+    }
+
+    @Test
+    void translateToDbTagCodes_deduplicatesExpandedCodes() {
+        List<String> result = service.translateToDbTagCodes(List.of("PULL_UP", "PULL_UP"));
+        assertNotNull(result);
+        assertEquals(2, result.size()); // PULL_UP_L and PULL_UP_R, not 4
+    }
+
+    @Test
+    void translateToDbTagCodes_multipleCodes_mergesAll() {
+        List<String> result = service.translateToDbTagCodes(List.of("PULL_UP", "THREE_POINT"));
+        assertNotNull(result);
+        assertTrue(result.containsAll(List.of("PULL_UP_L", "PULL_UP_R", "3PT")));
+        assertEquals(3, result.size());
+    }
+}

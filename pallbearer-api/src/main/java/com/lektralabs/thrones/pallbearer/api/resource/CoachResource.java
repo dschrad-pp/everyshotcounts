@@ -1,24 +1,36 @@
 package com.lektralabs.thrones.pallbearer.api.resource;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.jboss.logging.Logger;
 
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.CoachPartial;
-import com.lektralabs.thrones.pallbearer.jdbi.service.CoachDrillService;
+import com.lektralabs.thrones.pallbearer.api.model.response.AthleteDrillStatsItem;
+import com.lektralabs.thrones.pallbearer.api.model.response.PlayerSnapshotResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.AthleteSnapshotStatsRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.CoachAthleteSnapshotService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.CoachDrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -35,6 +47,9 @@ public class CoachResource {
 
     @Inject
     TeamService teamService;
+
+    @Inject
+    CoachAthleteSnapshotService snapshotService;
 
     @GET
     @Path("/{coachId}")
@@ -114,6 +129,107 @@ public class CoachResource {
                                 : "Successfully fetched full curriculum for athlete",
                         curriculum))
                 .build();
+    }
+
+    @GET
+    @Path("/{coachId}/athlete/{athleteId}/snapshot")
+    @RolesAllowed({ "ADMIN", "COACH" })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getAthleteSnapshot(@PathParam("coachId") UUID coachId,
+            @PathParam("athleteId") UUID athleteId) {
+        logger.infof("Fetching player snapshot for athlete ID: %s under coach ID: %s", athleteId, coachId);
+
+        AthleteDetail athlete = coachDrillService.findAthleteAssignedToCoach(coachId, athleteId)
+                .orElse(null);
+        if (athlete == null) {
+            return Response.status(403)
+                    .entity(new GenericApiResponse<>(403, "Athlete not accessible by this coach", null))
+                    .build();
+        }
+
+        AthleteSnapshotStatsRow stats = snapshotService.getAthleteStats(athleteId);
+        int overallMakePercent = CoachAthleteSnapshotService.computeMakePercent(stats.getTotalMakes(), stats.getTotalAttempts());
+
+        int orderIndex = snapshotService.getActiveDrillGroupOrderIndex(athleteId);
+        int levelProgress = snapshotService.getLevelProgress(athleteId);
+
+        List<SkillBreakdownRow> skillRows = snapshotService.getSkillBreakdown(athleteId);
+        List<PlayerSnapshotResponse.SkillBreakdown> skillBreakdown = skillRows.stream()
+                .map(row -> new PlayerSnapshotResponse.SkillBreakdown(
+                        row.getTagCode(),
+                        CoachAthleteSnapshotService.computeMakePercent(row.getTotalMakes(), row.getTotalAttempts())))
+                .collect(Collectors.toList());
+
+        String firstName = (athlete.getContactItem() != null) ? athlete.getContactItem().getFirstName() : "";
+        String lastName = (athlete.getContactItem() != null) ? athlete.getContactItem().getLastName() : "";
+        String name = (firstName + " " + lastName).trim();
+
+        PlayerSnapshotResponse snapshot = PlayerSnapshotResponse.builder()
+                .id(athleteId.toString())
+                .name(name)
+                .levelLabel(CoachAthleteSnapshotService.buildLevelLabel(orderIndex))
+                .sessionCount(stats.getSessionCount())
+                .overallMakePercent(overallMakePercent)
+                .makePercent(overallMakePercent)
+                .totalMakes(stats.getTotalMakes())
+                .totalAttempts(stats.getTotalAttempts())
+                .bestSessionMakes(stats.getBestSessionMakes())
+                .worstSessionMisses(stats.getWorstSessionMisses())
+                .roundsToPass(stats.getRoundsToPass())
+                .levelProgress(levelProgress)
+                .skillBreakdown(skillBreakdown)
+                .build();
+
+        return Response.ok(new GenericApiResponse<>(200, "Success", snapshot)).build();
+    }
+
+    @GET
+    @Path("/{coachId}/athlete/{athleteId}/drills/stats")
+    @RolesAllowed({ "ADMIN", "COACH" })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getAthleteDrillStats(@PathParam("coachId") UUID coachId,
+            @PathParam("athleteId") UUID athleteId,
+            @QueryParam("tagCodes") List<String> tagCodes,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("limit") @DefaultValue("50") int limit) {
+        logger.infof("Fetching drill stats for athlete ID: %s under coach ID: %s", athleteId, coachId);
+
+        if (coachDrillService.findAthleteAssignedToCoach(coachId, athleteId).isEmpty()) {
+            return Response.status(403)
+                    .entity(new GenericApiResponse<>(403, "Athlete not accessible by this coach", null))
+                    .build();
+        }
+
+        int clampedLimit = Math.min(Math.max(limit, 1), 100);
+        int clampedPage = Math.max(page, 0);
+
+        List<DrillStatsRow> drillRows = snapshotService.getDrillStats(athleteId, tagCodes, clampedPage, clampedLimit);
+
+        List<UUID> drillItemIds = drillRows.stream()
+                .map(DrillStatsRow::getDrillItemId)
+                .collect(Collectors.toList());
+        Map<UUID, List<DrillSkillTagRow>> tagsByDrillItem = snapshotService.getSkillTagsForDrillItems(drillItemIds);
+
+        List<AthleteDrillStatsItem> items = drillRows.stream()
+                .map(row -> {
+                    List<AthleteDrillStatsItem.DrillTag> tags = tagsByDrillItem
+                            .getOrDefault(row.getDrillItemId(), Collections.emptyList())
+                            .stream()
+                            .map(t -> new AthleteDrillStatsItem.DrillTag(t.getTagCode(), t.getTagName()))
+                            .collect(Collectors.toList());
+                    return AthleteDrillStatsItem.builder()
+                            .id(row.getDrillItemId().toString())
+                            .name(row.getDrillName())
+                            .makePercent(CoachAthleteSnapshotService.computeMakePercent(row.getTotalMakes(), row.getTotalAttempts()))
+                            .totalMakes(row.getTotalMakes())
+                            .totalAttempts(row.getTotalAttempts())
+                            .sessions(row.getSessions())
+                            .tags(tags)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return Response.ok(new GenericApiResponse<>(200, "Success", items)).build();
     }
 
 }

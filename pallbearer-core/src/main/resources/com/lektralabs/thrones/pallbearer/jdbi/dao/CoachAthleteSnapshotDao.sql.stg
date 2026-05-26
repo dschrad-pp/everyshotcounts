@@ -1,0 +1,125 @@
+group CoachAthleteSnapshotDao;
+
+getAthleteStats(athleteId) ::= <<
+SELECT
+    COALESCE(SUM(d.makes_reported), 0)                                      AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)                                   AS "totalAttempts",
+    COUNT(d.id)                                                             AS "sessionCount",
+    COALESCE(MAX(d.makes_reported), 0)                                      AS "bestSessionMakes",
+    COALESCE(MAX(GREATEST(d.attempts_reported - d.makes_reported, 0)), 0)   AS "worstSessionMisses",
+    COALESCE(
+        ROUND(
+            AVG(CASE WHEN d.drill_status = 'COMPLETE'
+                     THEN d.attempts_reported::FLOAT END)
+        )::INTEGER,
+        0
+    )                                                                       AS "roundsToPass"
+FROM t_drill d
+WHERE d.user_id = :athleteId
+>>
+
+getSkillBreakdown(athleteId) ::= <<
+WITH mapped AS (
+    SELECT
+        d.id AS drill_id,
+        CASE t.code
+            WHEN 'PULL_UP_L'        THEN 'PULL_UP'
+            WHEN 'PULL_UP_R'        THEN 'PULL_UP'
+            WHEN 'STEP_BACK_L'      THEN 'STEP_BACK'
+            WHEN 'STEP_BACK_R'      THEN 'STEP_BACK'
+            WHEN '3PT'              THEN 'THREE_POINT'
+            WHEN '15FT'             THEN 'SHOOTING'
+            WHEN 'DEPTH_SHOOTING'   THEN 'SHOOTING'
+            WHEN 'CATCH_AND_SHOOT'  THEN 'CATCH_SHOOT'
+        END AS skill_code,
+        d.makes_reported,
+        d.attempts_reported
+    FROM t_drill d
+    JOIN t_drill_item di ON di.id = d.drill_item_id
+    JOIN t_drill_item_tag dit ON dit.drill_item_id = di.id
+    JOIN t_tag t ON t.id = dit.tag_id
+    WHERE d.user_id = :athleteId
+      AND t.code IN ('PULL_UP_L','PULL_UP_R','STEP_BACK_L','STEP_BACK_R',
+                     '3PT','15FT','DEPTH_SHOOTING','CATCH_AND_SHOOT')
+),
+deduped AS (
+    SELECT DISTINCT drill_id, skill_code, makes_reported, attempts_reported
+    FROM mapped
+)
+SELECT
+    skill_code                              AS "tagCode",
+    COALESCE(SUM(makes_reported), 0)        AS "totalMakes",
+    COALESCE(SUM(attempts_reported), 0)     AS "totalAttempts"
+FROM deduped
+GROUP BY skill_code
+HAVING COALESCE(SUM(attempts_reported), 0) > 0
+>>
+
+getDrillStats(athleteId, limit, offset) ::= <<
+SELECT
+    di.id                                   AS "drillItemId",
+    di.name                                 AS "drillName",
+    COALESCE(SUM(d.makes_reported), 0)      AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)   AS "totalAttempts",
+    COUNT(d.id)                             AS "sessions"
+FROM t_drill d
+JOIN t_drill_item di ON di.id = d.drill_item_id
+WHERE d.user_id = :athleteId
+GROUP BY di.id, di.name
+ORDER BY COUNT(d.id) DESC,
+         (COALESCE(SUM(d.makes_reported), 0) * 1.0 / NULLIF(SUM(d.attempts_reported), 0)) DESC NULLS LAST
+LIMIT :limit OFFSET :offset
+>>
+
+getDrillStatsWithTagFilter(athleteId, tagCodes, limit, offset) ::= <<
+SELECT
+    di.id                                   AS "drillItemId",
+    di.name                                 AS "drillName",
+    COALESCE(SUM(d.makes_reported), 0)      AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)   AS "totalAttempts",
+    COUNT(d.id)                             AS "sessions"
+FROM t_drill d
+JOIN t_drill_item di ON di.id = d.drill_item_id
+WHERE d.user_id = :athleteId
+  AND di.id IN (
+      SELECT dit.drill_item_id
+        FROM t_drill_item_tag dit
+        JOIN t_tag t ON t.id = dit.tag_id
+       WHERE t.code IN (:tagCodes)
+  )
+GROUP BY di.id, di.name
+ORDER BY COUNT(d.id) DESC,
+         (COALESCE(SUM(d.makes_reported), 0) * 1.0 / NULLIF(SUM(d.attempts_reported), 0)) DESC NULLS LAST
+LIMIT :limit OFFSET :offset
+>>
+
+getSkillTagsForDrillItems(drillItemIds) ::= <<
+SELECT DISTINCT
+    dit.drill_item_id   AS "drillItemId",
+    CASE t.code
+        WHEN 'PULL_UP_L'        THEN 'PULL_UP'
+        WHEN 'PULL_UP_R'        THEN 'PULL_UP'
+        WHEN 'STEP_BACK_L'      THEN 'STEP_BACK'
+        WHEN 'STEP_BACK_R'      THEN 'STEP_BACK'
+        WHEN '3PT'              THEN 'THREE_POINT'
+        WHEN '15FT'             THEN 'SHOOTING'
+        WHEN 'DEPTH_SHOOTING'   THEN 'SHOOTING'
+        WHEN 'CATCH_AND_SHOOT'  THEN 'CATCH_SHOOT'
+    END                 AS "tagCode",
+    CASE t.code
+        WHEN 'PULL_UP_L'        THEN 'Pull-Up'
+        WHEN 'PULL_UP_R'        THEN 'Pull-Up'
+        WHEN 'STEP_BACK_L'      THEN 'Step-Back'
+        WHEN 'STEP_BACK_R'      THEN 'Step-Back'
+        WHEN '3PT'              THEN '3-Point'
+        WHEN '15FT'             THEN 'Shooting'
+        WHEN 'DEPTH_SHOOTING'   THEN 'Shooting'
+        WHEN 'CATCH_AND_SHOOT'  THEN 'Catch & Shoot'
+    END                 AS "tagName"
+FROM t_drill_item_tag dit
+JOIN t_tag t ON t.id = dit.tag_id
+WHERE dit.drill_item_id IN (:drillItemIds)
+  AND t.code IN ('PULL_UP_L','PULL_UP_R','STEP_BACK_L','STEP_BACK_R',
+                 '3PT','15FT','DEPTH_SHOOTING','CATCH_AND_SHOOT')
+ORDER BY "tagCode"
+>>

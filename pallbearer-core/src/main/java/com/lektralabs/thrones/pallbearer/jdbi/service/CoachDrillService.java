@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
 
@@ -67,6 +68,11 @@ public class CoachDrillService {
 
     public Optional<CoachPartial> findCoachById(UUID coachId) {
         return coachDao.findById(coachId);
+    }
+
+    public Optional<AthleteDetail> findAthleteAssignedToCoach(UUID coachId, UUID athleteId) {
+        return coachDao.selectAthleteAssignedToCoach(coachId, athleteId)
+                .stream().findFirst();
     }
 
     public List<AthleteDetail> findAllAthletesAssignedToCoach(UUID coachId) {
