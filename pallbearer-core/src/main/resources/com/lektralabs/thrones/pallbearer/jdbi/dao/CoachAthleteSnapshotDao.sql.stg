@@ -4,7 +4,7 @@ getAthleteStats(athleteId) ::= <<
 SELECT
     COALESCE(SUM(d.makes_reported), 0)                                      AS "totalMakes",
     COALESCE(SUM(d.attempts_reported), 0)                                   AS "totalAttempts",
-    COUNT(d.id)                                                             AS "sessionCount",
+    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                  AS "sessionCount",
     COALESCE(MAX(d.makes_reported), 0)                                      AS "bestSessionMakes",
     COALESCE(MAX(GREATEST(d.attempts_reported - d.makes_reported, 0)), 0)   AS "worstSessionMisses",
     COALESCE(
