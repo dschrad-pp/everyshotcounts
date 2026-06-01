@@ -207,6 +207,36 @@ public class AthleteDrillItemProgressManager {
     private void insertAttemptHistory(UUID drillId, UUID userId, DrillPartial partial,
             UUID mediaId, Integer version) {
         try {
+            java.sql.Timestamp now = new java.sql.Timestamp(System.currentTimeMillis());
+
+            java.sql.Timestamp recordedAt = partial.getRecordedAt();
+            if (recordedAt != null && recordedAt.after(now)) {
+                logger.warn("⚠️ Client-supplied recordedAt {} is in the future; discarding. DrillId={}, UserId={}", recordedAt, drillId, userId);
+                recordedAt = null;
+            }
+
+            java.sql.Timestamp startedAt = partial.getStartedAt();
+            if (startedAt != null && startedAt.after(now)) {
+                logger.warn("⚠️ Client-supplied startedAt {} is in the future; discarding. DrillId={}, UserId={}", startedAt, drillId, userId);
+                startedAt = null;
+            }
+            if (startedAt != null && recordedAt != null && startedAt.after(recordedAt)) {
+                logger.warn("⚠️ startedAt {} is after recordedAt {}; discarding startedAt. DrillId={}, UserId={}", startedAt, recordedAt, drillId, userId);
+                startedAt = null;
+            }
+
+            Integer hotStreak = partial.getHotStreak();
+            if (hotStreak != null && hotStreak < 0) {
+                logger.warn("⚠️ Negative hotStreak {} received; discarding. DrillId={}, UserId={}", hotStreak, drillId, userId);
+                hotStreak = null;
+            }
+
+            Integer coldStreak = partial.getColdStreak();
+            if (coldStreak != null && coldStreak < 0) {
+                logger.warn("⚠️ Negative coldStreak {} received; discarding. DrillId={}, UserId={}", coldStreak, drillId, userId);
+                coldStreak = null;
+            }
+
             int attemptNumber = drillAttemptHistoryService.getAttemptCount(userId, drillId) + 1;
             DrillAttemptHistoryRow row = DrillAttemptHistoryRow.builder()
                     .id(UUID.randomUUID())
@@ -220,6 +250,10 @@ public class AthleteDrillItemProgressManager {
                     .version(version)
                     .attemptLocalId(partial.getAttemptLocalId())
                     .attemptNumber(attemptNumber)
+                    .hotStreak(hotStreak)
+                    .coldStreak(coldStreak)
+                    .recordedAt(recordedAt)
+                    .startedAt(startedAt)
                     .build();
             drillAttemptHistoryService.insertHistory(row);
             logger.info("📋 Inserted attempt history row for DrillId={}, UserId={}, AttemptLocalId={}, AttemptNumber={}", drillId, userId, partial.getAttemptLocalId(), attemptNumber);

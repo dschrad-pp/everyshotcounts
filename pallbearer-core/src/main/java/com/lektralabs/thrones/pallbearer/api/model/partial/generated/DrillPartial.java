@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,10 @@ public class DrillPartial implements Serializable, EntityMethods {
     private Integer makesDetected;
     private Integer makesReported;
     private String attemptLocalId;
+    private Integer hotStreak;
+    private Integer coldStreak;
+    private Timestamp recordedAt;
+    private Timestamp startedAt;
 
     public DrillRow toRow(CurrentUser auditUser) {
         long now = DateTimeUtils.now().getMillis();

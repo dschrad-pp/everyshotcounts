@@ -24,8 +24,17 @@ public class DrillAttemptHistoryResponse {
     private Integer makesDetected;
     private Integer makesReported;
     private Timestamp recordedAt;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Timestamp startedAt;
     private Integer version;
     private UUID mediaId;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer hotStreak;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer coldStreak;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String videoUrl;
@@ -53,8 +62,11 @@ public class DrillAttemptHistoryResponse {
                 .makesDetected(row.getMakesDetected())
                 .makesReported(row.getMakesReported())
                 .recordedAt(row.getRecordedAt())
+                .startedAt(row.getStartedAt())
                 .version(row.getVersion())
                 .mediaId(row.getMediaId())
+                .hotStreak(row.getHotStreak())
+                .coldStreak(row.getColdStreak())
                 .videoUrl(videoUrl)
                 .build();
     }

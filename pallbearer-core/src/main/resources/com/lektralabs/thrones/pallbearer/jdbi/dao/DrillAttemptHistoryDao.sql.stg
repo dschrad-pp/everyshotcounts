@@ -11,10 +11,13 @@ INSERT INTO t_drill_attempt_history (
     makes_detected,
     makes_reported,
     recorded_at,
+    started_at,
     version,
     media_id,
     attempt_local_id,
-    attempt_number
+    attempt_number,
+    hot_streak,
+    cold_streak
 ) VALUES (
     :id,
     :userId,
@@ -23,11 +26,14 @@ INSERT INTO t_drill_attempt_history (
     :attemptsReported,
     :makesDetected,
     :makesReported,
-    NOW(),
+    COALESCE(:recordedAt, NOW()),
+    :startedAt,
     :version,
     :mediaId,
     :attemptLocalId,
-    :attemptNumber
+    :attemptNumber,
+    :hotStreak,
+    :coldStreak
 )
 ON CONFLICT (attempt_local_id) DO NOTHING;
 >>

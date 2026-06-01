@@ -57,11 +57,11 @@ HAVING COALESCE(SUM(attempts_reported), 0) > 0
 
 getDrillStats(athleteId, limit, offset) ::= <<
 SELECT
-    di.id                                   AS "drillItemId",
-    di.name                                 AS "drillName",
-    COALESCE(SUM(d.makes_reported), 0)      AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)   AS "totalAttempts",
-    COUNT(d.id)                             AS "sessions"
+    di.id                                                           AS "drillItemId",
+    di.name                                                         AS "drillName",
+    COALESCE(SUM(d.makes_reported), 0)                              AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)                           AS "totalAttempts",
+    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)          AS "sessions"
 FROM t_drill d
 JOIN t_drill_item di ON di.id = d.drill_item_id
 WHERE d.user_id = :athleteId
@@ -73,11 +73,11 @@ LIMIT :limit OFFSET :offset
 
 getDrillStatsWithTagFilter(athleteId, tagCodes, limit, offset) ::= <<
 SELECT
-    di.id                                   AS "drillItemId",
-    di.name                                 AS "drillName",
-    COALESCE(SUM(d.makes_reported), 0)      AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)   AS "totalAttempts",
-    COUNT(d.id)                             AS "sessions"
+    di.id                                                           AS "drillItemId",
+    di.name                                                         AS "drillName",
+    COALESCE(SUM(d.makes_reported), 0)                              AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)                           AS "totalAttempts",
+    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)          AS "sessions"
 FROM t_drill d
 JOIN t_drill_item di ON di.id = d.drill_item_id
 WHERE d.user_id = :athleteId
