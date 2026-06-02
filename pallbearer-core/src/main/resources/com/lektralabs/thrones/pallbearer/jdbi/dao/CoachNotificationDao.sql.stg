@@ -1,0 +1,68 @@
+group CoachNotificationDao;
+
+insert() ::= <<
+    INSERT INTO t_coach_notification (
+        id, coach_id, athlete_id, drill_id, drill_item_id,
+        drill_name, athlete_first_name, athlete_last_name,
+        completed_at, is_read, is_dismissed, creation_date
+    ) VALUES (
+        :id, :coachId, :athleteId, :drillId, :drillItemId,
+        :drillName, :athleteFirstName, :athleteLastName,
+        :completedAt, :isRead, :isDismissed, :creationDate
+    )
+>>
+
+findByCoachIdPaginated() ::= <<
+    SELECT id
+         , coach_id
+         , athlete_id
+         , drill_id
+         , drill_item_id
+         , drill_name
+         , athlete_first_name
+         , athlete_last_name
+         , completed_at
+         , is_read
+         , is_dismissed
+         , creation_date
+      FROM t_coach_notification
+     WHERE coach_id = :coachId
+       AND is_dismissed = false
+     ORDER BY completed_at DESC
+     LIMIT :limit OFFSET :offset
+>>
+
+countByCoachId() ::= <<
+    SELECT COUNT(*)
+      FROM t_coach_notification
+     WHERE coach_id = :coachId
+       AND is_dismissed = false
+>>
+
+countUnreadByCoachId() ::= <<
+    SELECT COUNT(*)
+      FROM t_coach_notification
+     WHERE coach_id = :coachId
+       AND is_dismissed = false
+       AND is_read = false
+>>
+
+markAsRead() ::= <<
+    UPDATE t_coach_notification
+       SET is_read = true
+     WHERE id = :id
+       AND coach_id = :callerId
+>>
+
+dismiss() ::= <<
+    UPDATE t_coach_notification
+       SET is_dismissed = true
+     WHERE id = :id
+       AND coach_id = :callerId
+>>
+
+dismissAllByCoachId() ::= <<
+    UPDATE t_coach_notification
+       SET is_dismissed = true
+     WHERE coach_id = :coachId
+>>

@@ -1,0 +1,26 @@
+group DeviceTokenDao;
+
+findByUserId() ::= <<
+    SELECT id
+         , user_id
+         , token
+         , platform
+         , created_at
+         , updated_at
+      FROM t_device_token
+     WHERE user_id = :userId
+       AND platform = :platform
+>>
+
+upsert() ::= <<
+    INSERT INTO t_device_token (id, user_id, token, platform, created_at, updated_at)
+    VALUES (:id, :userId, :token, :platform, :createdAt, :updatedAt)
+    ON CONFLICT (user_id, platform)
+    DO UPDATE SET token = EXCLUDED.token, updated_at = EXCLUDED.updated_at
+>>
+
+deleteByUserId() ::= <<
+    DELETE FROM t_device_token
+     WHERE user_id = :userId
+       AND platform = :platform
+>>

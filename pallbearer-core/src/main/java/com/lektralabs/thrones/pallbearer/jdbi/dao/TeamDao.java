@@ -38,4 +38,7 @@ public interface TeamDao {
     @SqlQuery("findCoachNameByTeamId")
     Optional<String> findCoachNameByTeamId(@Bind("teamId") UUID teamId);
 
+    @SqlQuery("findCoachIdByTeamId")
+    Optional<UUID> findCoachIdByTeamId(@Bind("teamId") UUID teamId);
+
 }

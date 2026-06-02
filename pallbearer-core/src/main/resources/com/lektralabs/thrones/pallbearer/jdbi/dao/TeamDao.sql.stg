@@ -63,3 +63,14 @@ findCoachNameByTeamId() ::= <<
        AND r.name = 'COACH'
      LIMIT 1
 >>
+
+findCoachIdByTeamId() ::= <<
+    SELECT u.id
+      FROM t_user u
+      JOIN t_user_role_xref ur ON u.id = ur.user_id
+      JOIN t_role r ON ur.role_id = r.id
+      JOIN t_team_user_xref xref ON u.id = xref.user_id
+     WHERE xref.team_id = :teamId
+       AND r.name = 'COACH'
+     LIMIT 1
+>>

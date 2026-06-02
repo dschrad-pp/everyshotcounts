@@ -9,6 +9,7 @@ import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.manager.AthleteDrillItemProgressManager;
 import com.lektralabs.thrones.pallbearer.jdbi.service.DrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.CoachNotificationService;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
 import com.lektralabs.thrones.pallbearer.manager.AthleteMetricManager;
@@ -52,6 +53,9 @@ public class DrillResource {
 
     @Inject
     AthleteManagerUtils athleteManagerUtils;
+
+    @Inject
+    CoachNotificationService coachNotificationService;
 
     @GET
     @Path("/{drillId}")
@@ -130,6 +134,7 @@ public class DrillResource {
             }
 
             athleteMetricManager.updateDrillCompletionMetrics(athleteUserId);
+            coachNotificationService.createNotificationForDrillCompletion(athleteUserId, drillId, drillPartial.getDrillItemId());
 
             return drillService.findByIdWithHistory(drillId)
                     .map(drillWithHistory -> {
@@ -234,8 +239,9 @@ public class DrillResource {
                                 results.add(drillWithHistory);
                             });
                             successCount++;
-                            logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s, UserId=%s", 
+                            logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s, UserId=%s",
                                     i, actualDrillId, drillItemId, userId);
+                            coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId);
                         } else {
                             String error = String.format("Drill at index %d: Drill was completed but not found after completion", i);
                             logger.error("❌ {}", error);
@@ -474,8 +480,9 @@ public class DrillResource {
                                 results.add(drillWithHistory);
                             });
                             successCount++;
-                            logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s", 
+                            logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s",
                                     i, actualDrillId, drillItemId);
+                            coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId);
                         } else {
                             String error = String.format("Drill at index %d: Drill was completed but not found after completion", i);
                             logger.error("❌ {}", error);
@@ -500,7 +507,7 @@ public class DrillResource {
             // Prepare response
             if (failureCount == 0) {
                 // All successful
-                logger.info("✅ All {} drills completed successfully for group={}, levelIndex={}, orderIndex={}", 
+                logger.info("✅ All {} drills completed successfully for group={}, levelIndex={}, orderIndex={}",
                         successCount, groupName, request.getLevelIndex(), request.getOrderIndex());
                 return Response.ok(
                         new GenericApiResponse<>(200,
