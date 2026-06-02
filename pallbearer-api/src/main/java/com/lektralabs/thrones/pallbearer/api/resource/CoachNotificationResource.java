@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Path("/api")
+@Path("/api/coach")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class CoachNotificationResource {
@@ -36,7 +36,7 @@ public class CoachNotificationResource {
     SecurityIdentity securityIdentity;
 
     @GET
-    @Path("/coach/{coachId}/notifications")
+    @Path("/{coachId}/notifications")
     @RolesAllowed({"ADMIN", "COACH"})
     public Response getNotifications(
             @PathParam("coachId") UUID coachId,
@@ -75,50 +75,8 @@ public class CoachNotificationResource {
         }
     }
 
-    @PATCH
-    @Path("/notifications/{notificationId}/read")
-    @RolesAllowed({"ADMIN", "COACH"})
-    public Response markAsRead(@PathParam("notificationId") UUID notificationId) {
-        try {
-            UUID callerId = currentUserUtils.getCurrentUserId();
-            int updated = coachNotificationService.markAsRead(notificationId, callerId);
-            if (updated == 0) {
-                return Response.status(404)
-                        .entity(new GenericApiResponse<>(404, "Notification not found", null))
-                        .build();
-            }
-            return Response.ok(new GenericApiResponse<>(200, "Notification marked as read", null)).build();
-        } catch (Exception e) {
-            logger.errorf(e, "Failed to mark notification as read: %s", notificationId);
-            return Response.status(500)
-                    .entity(new GenericApiResponse<>(500, "Failed to update notification", null))
-                    .build();
-        }
-    }
-
     @DELETE
-    @Path("/notifications/{notificationId}")
-    @RolesAllowed({"ADMIN", "COACH"})
-    public Response dismiss(@PathParam("notificationId") UUID notificationId) {
-        try {
-            UUID callerId = currentUserUtils.getCurrentUserId();
-            int updated = coachNotificationService.dismiss(notificationId, callerId);
-            if (updated == 0) {
-                return Response.status(404)
-                        .entity(new GenericApiResponse<>(404, "Notification not found", null))
-                        .build();
-            }
-            return Response.ok(new GenericApiResponse<>(200, "Notification dismissed", null)).build();
-        } catch (Exception e) {
-            logger.errorf(e, "Failed to dismiss notification: %s", notificationId);
-            return Response.status(500)
-                    .entity(new GenericApiResponse<>(500, "Failed to dismiss notification", null))
-                    .build();
-        }
-    }
-
-    @DELETE
-    @Path("/coach/{coachId}/notifications")
+    @Path("/{coachId}/notifications")
     @RolesAllowed({"ADMIN", "COACH"})
     public Response dismissAll(@PathParam("coachId") UUID coachId) {
         try {
