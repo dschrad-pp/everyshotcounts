@@ -464,6 +464,9 @@ getCompletedByAthleteWithFilters() ::= <<
        , mc.birth_date               AS "mc_birthDate"
        , mc.version                  AS "mc_version"
        , true                        AS "di_isLocked"
+       , COALESCE(dah.best_make_streak, 0)       AS "dr_bestMakeStreak"
+       , COALESCE(dah.longest_miss_streak, 0)    AS "dr_longestMissStreak"
+       , dah.avg_time_per_round_seconds          AS "dr_avgTimePerRoundSeconds"
    FROM t_drill_item di
    JOIN t_drill_group dg ON dg.id = di.drill_group_id
    JOIN t_drill dr ON dr.drill_item_id = di.id
@@ -473,6 +476,16 @@ getCompletedByAthleteWithFilters() ::= <<
    JOIN t_contact cc ON cc.id = cu.contact_id
    JOIN t_user mu ON mu.id = dr.modified_by_id
    JOIN t_contact mc ON mc.id = mu.contact_id
+   LEFT JOIN (
+       SELECT drill_id
+            , MAX(hot_streak)                                                   AS best_make_streak
+            , MAX(cold_streak)                                                  AS longest_miss_streak
+            , AVG(CASE WHEN started_at IS NOT NULL AND recorded_at IS NOT NULL
+                       THEN EXTRACT(EPOCH FROM (recorded_at - started_at))
+                  END)                                                          AS avg_time_per_round_seconds
+         FROM t_drill_attempt_history
+        GROUP BY drill_id
+   ) dah ON dah.drill_id = dr.id
   WHERE dr.drill_status = 'COMPLETE'
   ORDER BY dr.creation_date DESC
   LIMIT :limit OFFSET :offset
@@ -544,6 +557,9 @@ getCompletedByAthleteWithTagFilter() ::= <<
        , mc.birth_date               AS "mc_birthDate"
        , mc.version                  AS "mc_version"
        , true                        AS "di_isLocked"
+       , COALESCE(dah.best_make_streak, 0)       AS "dr_bestMakeStreak"
+       , COALESCE(dah.longest_miss_streak, 0)    AS "dr_longestMissStreak"
+       , dah.avg_time_per_round_seconds          AS "dr_avgTimePerRoundSeconds"
    FROM t_drill_item di
    JOIN t_drill_group dg ON dg.id = di.drill_group_id
    JOIN t_drill dr ON dr.drill_item_id = di.id
@@ -553,6 +569,16 @@ getCompletedByAthleteWithTagFilter() ::= <<
    JOIN t_contact cc ON cc.id = cu.contact_id
    JOIN t_user mu ON mu.id = dr.modified_by_id
    JOIN t_contact mc ON mc.id = mu.contact_id
+   LEFT JOIN (
+       SELECT drill_id
+            , MAX(hot_streak)                                                   AS best_make_streak
+            , MAX(cold_streak)                                                  AS longest_miss_streak
+            , AVG(CASE WHEN started_at IS NOT NULL AND recorded_at IS NOT NULL
+                       THEN EXTRACT(EPOCH FROM (recorded_at - started_at))
+                  END)                                                          AS avg_time_per_round_seconds
+         FROM t_drill_attempt_history
+        GROUP BY drill_id
+   ) dah ON dah.drill_id = dr.id
   WHERE dr.drill_status = 'COMPLETE'
     AND di.id IN (
         SELECT dit.drill_item_id

@@ -33,6 +33,9 @@ public class DrillDetail {
     private Integer attemptsReported;
     private Integer makesDetected;
     private Integer makesReported;
+    private Integer bestMakeStreak;
+    private Integer longestMissStreak;
+    private Double avgTimePerRoundSeconds;
     private List<DrillAttemptHistoryResponse> attemptHistory;
 
     public Optional<DrillAttemptHistoryResponse> getMostRecentAttempt() {

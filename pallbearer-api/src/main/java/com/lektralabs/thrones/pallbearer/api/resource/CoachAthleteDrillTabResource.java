@@ -34,12 +34,16 @@ public class CoachAthleteDrillTabResource {
                 .findCompletedDrillsForAthleteUnderCoach(coachId, athleteId, tagCodes, page, limit);
 
         List<CompletedDrillResponse> response = drills.stream()
-                .map(d -> new CompletedDrillResponse(
-                        d.getDrillDetail().map(dd -> dd.getId().toString()).orElse(null),
-                        d.getName().orElse(null),
-                        d.getDrillDetail().map(dd -> dd.getMakesReported()).orElse(null),
-                        d.getDrillDetail().map(dd -> dd.getAttemptsReported()).orElse(null),
-                        d.getTags()))
+                .map(d -> CompletedDrillResponse.builder()
+                        .id(d.getDrillDetail().map(dd -> dd.getId() != null ? dd.getId().toString() : null).orElse(null))
+                        .name(d.getName().orElse(null))
+                        .makesReported(d.getDrillDetail().map(dd -> dd.getMakesReported()).orElse(null))
+                        .attemptsReported(d.getDrillDetail().map(dd -> dd.getAttemptsReported()).orElse(null))
+                        .tags(d.getTags())
+                        .bestMakeStreak(d.getDrillDetail().map(dd -> dd.getBestMakeStreak()).orElse(null))
+                        .longestMissStreak(d.getDrillDetail().map(dd -> dd.getLongestMissStreak()).orElse(null))
+                        .avgTimePerRoundSeconds(d.getDrillDetail().map(dd -> dd.getAvgTimePerRoundSeconds()).orElse(null))
+                        .build())
                 .collect(Collectors.toList());
 
         return Response.ok(new GenericApiResponse<>(200,

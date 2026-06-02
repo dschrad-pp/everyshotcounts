@@ -18,4 +18,7 @@ public class CompletedDrillResponse {
     private Integer makesReported;
     private Integer attemptsReported;
     private List<TagRow> tags;
+    private Integer bestMakeStreak;
+    private Integer longestMissStreak;
+    private Double avgTimePerRoundSeconds;
 }
