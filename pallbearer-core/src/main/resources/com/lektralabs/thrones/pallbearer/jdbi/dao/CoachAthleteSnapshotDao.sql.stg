@@ -57,13 +57,21 @@ HAVING COALESCE(SUM(attempts_reported), 0) > 0
 
 getDrillStats(athleteId, limit, offset) ::= <<
 SELECT
-    di.id                                                           AS "drillItemId",
-    di.name                                                         AS "drillName",
-    COALESCE(SUM(d.makes_reported), 0)                              AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)                           AS "totalAttempts",
-    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)          AS "sessions"
+    di.id                                                                        AS "drillItemId",
+    di.name                                                                      AS "drillName",
+    COALESCE(SUM(d.makes_reported), 0)                                           AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)                                        AS "totalAttempts",
+    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                       AS "sessions",
+    COALESCE(MAX(dah.hot_streak), 0)                                             AS "bestMakeStreak",
+    COALESCE(MAX(dah.cold_streak), 0)                                            AS "longestMissStreak",
+    AVG(
+        CASE WHEN dah.started_at IS NOT NULL AND dah.recorded_at IS NOT NULL
+             THEN EXTRACT(EPOCH FROM (dah.recorded_at - dah.started_at))
+        END
+    )                                                                            AS "avgTimePerRoundSeconds"
 FROM t_drill d
 JOIN t_drill_item di ON di.id = d.drill_item_id
+LEFT JOIN t_drill_attempt_history dah ON dah.drill_id = d.id
 WHERE d.user_id = :athleteId
 GROUP BY di.id, di.name
 ORDER BY COUNT(d.id) DESC,
@@ -73,13 +81,21 @@ LIMIT :limit OFFSET :offset
 
 getDrillStatsWithTagFilter(athleteId, tagCodes, limit, offset) ::= <<
 SELECT
-    di.id                                                           AS "drillItemId",
-    di.name                                                         AS "drillName",
-    COALESCE(SUM(d.makes_reported), 0)                              AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)                           AS "totalAttempts",
-    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)          AS "sessions"
+    di.id                                                                        AS "drillItemId",
+    di.name                                                                      AS "drillName",
+    COALESCE(SUM(d.makes_reported), 0)                                           AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)                                        AS "totalAttempts",
+    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                       AS "sessions",
+    COALESCE(MAX(dah.hot_streak), 0)                                             AS "bestMakeStreak",
+    COALESCE(MAX(dah.cold_streak), 0)                                            AS "longestMissStreak",
+    AVG(
+        CASE WHEN dah.started_at IS NOT NULL AND dah.recorded_at IS NOT NULL
+             THEN EXTRACT(EPOCH FROM (dah.recorded_at - dah.started_at))
+        END
+    )                                                                            AS "avgTimePerRoundSeconds"
 FROM t_drill d
 JOIN t_drill_item di ON di.id = d.drill_item_id
+LEFT JOIN t_drill_attempt_history dah ON dah.drill_id = d.id
 WHERE d.user_id = :athleteId
   AND di.id IN (
       SELECT dit.drill_item_id

@@ -1,5 +1,6 @@
 package com.lektralabs.thrones.pallbearer.api.model.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +20,10 @@ public class AthleteDrillStatsItem {
     private int totalMakes;
     private int totalAttempts;
     private int sessions;
+    private int bestMakeStreak;
+    private int longestMissStreak;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Double avgTimePerRoundSeconds;
     private List<DrillTag> tags;
 
     @Data

@@ -15,4 +15,7 @@ public class DrillStatsRow {
     private int totalMakes;
     private int totalAttempts;
     private int sessions;
+    private int bestMakeStreak;
+    private int longestMissStreak;
+    private Double avgTimePerRoundSeconds;
 }

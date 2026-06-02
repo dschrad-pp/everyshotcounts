@@ -224,6 +224,9 @@ public class CoachResource {
                             .totalMakes(row.getTotalMakes())
                             .totalAttempts(row.getTotalAttempts())
                             .sessions(row.getSessions())
+                            .bestMakeStreak(row.getBestMakeStreak())
+                            .longestMissStreak(row.getLongestMissStreak())
+                            .avgTimePerRoundSeconds(row.getAvgTimePerRoundSeconds())
                             .tags(tags)
                             .build();
                 })
