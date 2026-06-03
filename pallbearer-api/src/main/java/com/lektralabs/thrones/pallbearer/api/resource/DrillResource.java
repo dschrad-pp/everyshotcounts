@@ -134,7 +134,7 @@ public class DrillResource {
             }
 
             athleteMetricManager.updateDrillCompletionMetrics(athleteUserId);
-            coachNotificationService.createNotificationForDrillCompletion(athleteUserId, drillId, drillPartial.getDrillItemId());
+            coachNotificationService.createNotificationForDrillCompletion(athleteUserId, drillId, drillPartial.getDrillItemId(), drillPartial.getMakesDetected());
 
             return drillService.findByIdWithHistory(drillId)
                     .map(drillWithHistory -> {
@@ -241,7 +241,7 @@ public class DrillResource {
                             successCount++;
                             logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s, UserId=%s",
                                     i, actualDrillId, drillItemId, userId);
-                            coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId);
+                            coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId, drillPartial.getMakesDetected());
                         } else {
                             String error = String.format("Drill at index %d: Drill was completed but not found after completion", i);
                             logger.error("❌ {}", error);
@@ -482,7 +482,7 @@ public class DrillResource {
                             successCount++;
                             logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s",
                                     i, actualDrillId, drillItemId);
-                            coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId);
+                            coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId, drillPartial.getMakesDetected());
                         } else {
                             String error = String.format("Drill at index %d: Drill was completed but not found after completion", i);
                             logger.error("❌ {}", error);

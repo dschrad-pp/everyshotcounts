@@ -53,7 +53,7 @@ public class CoachNotificationService {
         this.teamDao = jdbiProvider.getJdbi().onDemand(TeamDao.class);
     }
 
-    public void createNotificationForDrillCompletion(UUID athleteId, UUID drillId, UUID drillItemId) {
+    public void createNotificationForDrillCompletion(UUID athleteId, UUID drillId, UUID drillItemId, Integer makesDetected) {
         try {
             Optional<TeamRow> teamOpt = teamDao.findTeamByUserId(athleteId);
             if (teamOpt.isEmpty()) {
@@ -80,9 +80,17 @@ public class CoachNotificationService {
             }
 
             String drillName = "";
+            Integer passingScore = null;
             Optional<DrillItemRow> drillItemOpt = drillItemService.findById(drillItemId);
             if (drillItemOpt.isPresent()) {
                 drillName = drillItemOpt.get().getName().orElse("");
+                passingScore = drillItemOpt.get().getPassingScore();
+            }
+
+            if (passingScore != null && makesDetected != null && makesDetected < passingScore) {
+                logger.debugf("Athlete %s did not pass drill %s (makes=%d, required=%d) — skipping coach notification",
+                        athleteId, drillItemId, makesDetected, passingScore);
+                return;
             }
 
             long now = System.currentTimeMillis();
