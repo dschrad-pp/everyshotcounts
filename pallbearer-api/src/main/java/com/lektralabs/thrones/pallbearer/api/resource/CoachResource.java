@@ -150,14 +150,14 @@ public class CoachResource {
         AthleteSnapshotStatsRow stats = snapshotService.getAthleteStats(athleteId);
         int overallMakePercent = CoachAthleteSnapshotService.computeMakePercent(stats.getTotalMakes(), stats.getTotalAttempts());
 
-        int orderIndex = snapshotService.getActiveDrillGroupOrderIndex(athleteId);
+        String levelLabel = snapshotService.getLevelLabel(athleteId);
         int levelProgress = snapshotService.getLevelProgress(athleteId);
 
         List<SkillBreakdownRow> skillRows = snapshotService.getSkillBreakdown(athleteId);
         List<PlayerSnapshotResponse.SkillBreakdown> skillBreakdown = skillRows.stream()
                 .map(row -> new PlayerSnapshotResponse.SkillBreakdown(
                         row.getTagCode(),
-                        CoachAthleteSnapshotService.computeMakePercent(row.getTotalMakes(), row.getTotalAttempts())))
+                        row.getCoveragePercent()))
                 .collect(Collectors.toList());
 
         String firstName = (athlete.getContactItem() != null) ? athlete.getContactItem().getFirstName() : "";
@@ -167,7 +167,7 @@ public class CoachResource {
         PlayerSnapshotResponse snapshot = PlayerSnapshotResponse.builder()
                 .id(athleteId.toString())
                 .name(name)
-                .levelLabel(CoachAthleteSnapshotService.buildLevelLabel(orderIndex))
+                .levelLabel(levelLabel)
                 .sessionCount(stats.getSessionCount())
                 .overallMakePercent(overallMakePercent)
                 .makePercent(overallMakePercent)
@@ -175,6 +175,8 @@ public class CoachResource {
                 .totalAttempts(stats.getTotalAttempts())
                 .bestSessionMakes(stats.getBestSessionMakes())
                 .worstSessionMisses(stats.getWorstSessionMisses())
+                .bestMakeStreak(stats.getBestMakeStreak())
+                .worstMissStreak(stats.getWorstMissStreak())
                 .roundsToPass(stats.getRoundsToPass())
                 .levelProgress(levelProgress)
                 .skillBreakdown(skillBreakdown)

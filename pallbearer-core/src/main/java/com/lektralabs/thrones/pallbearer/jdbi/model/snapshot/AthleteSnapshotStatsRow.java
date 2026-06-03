@@ -13,5 +13,7 @@ public class AthleteSnapshotStatsRow {
     private int sessionCount;
     private int bestSessionMakes;
     private int worstSessionMisses;
+    private int bestMakeStreak;
+    private int worstMissStreak;
     private int roundsToPass;
 }

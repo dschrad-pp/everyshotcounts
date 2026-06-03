@@ -23,6 +23,8 @@ public class PlayerSnapshotResponse {
     private int totalAttempts;
     private int bestSessionMakes;
     private int worstSessionMisses;
+    private int bestMakeStreak;
+    private int worstMissStreak;
     private int roundsToPass;
     private int levelProgress;
     private List<SkillBreakdown> skillBreakdown;
@@ -32,6 +34,6 @@ public class PlayerSnapshotResponse {
     @NoArgsConstructor
     public static class SkillBreakdown {
         private String tagCode;
-        private int makePercent;
+        private int coveragePercent;
     }
 }

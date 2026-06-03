@@ -23,13 +23,24 @@ public class CoachAthleteSnapshotServiceTest {
         "9,  Test 3",
         "12, Test 4"
     })
-    void buildLevelLabel_returnsCorrectLabel(int orderIndex, String expected) {
-        assertEquals(expected, CoachAthleteSnapshotService.buildLevelLabel(orderIndex));
+    void buildLevelLabel_noGroupName_returnsCorrectLabel(int orderIndex, String expected) {
+        assertEquals(expected, CoachAthleteSnapshotService.buildLevelLabel("", orderIndex));
     }
 
     @Test
     void buildLevelLabel_zeroIndex_returnsLevelZero() {
-        assertEquals("Level 0", CoachAthleteSnapshotService.buildLevelLabel(0));
+        assertEquals("Level 0", CoachAthleteSnapshotService.buildLevelLabel("", 0));
+    }
+
+    @Test
+    void buildLevelLabel_withGroupName_prependsGroupName() {
+        assertEquals("Beginner Level 1", CoachAthleteSnapshotService.buildLevelLabel("Beginner", 1));
+        assertEquals("Intermediate Test 1", CoachAthleteSnapshotService.buildLevelLabel("Intermediate", 3));
+    }
+
+    @Test
+    void buildLevelLabel_nullGroupName_treatedAsBlank() {
+        assertEquals("Level 2", CoachAthleteSnapshotService.buildLevelLabel(null, 2));
     }
 
     // ── computeMakePercent ───────────────────────────────────────────────────

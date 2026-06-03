@@ -1,58 +1,87 @@
 group CoachAthleteSnapshotDao;
 
 getAthleteStats(athleteId) ::= <<
+WITH streaks AS (
+    SELECT
+        COALESCE(MAX(dah.hot_streak), 0)  AS best_make_streak,
+        COALESCE(MAX(dah.cold_streak), 0) AS worst_miss_streak
+    FROM t_drill_attempt_history dah
+    JOIN t_drill d2 ON d2.id = dah.drill_id
+    WHERE d2.user_id = :athleteId
+),
+ranked AS (
+    SELECT
+        dr.drill_item_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY dr.drill_item_id
+            ORDER BY dr.creation_date
+        )                                       AS session_num,
+        dr.makes_reported >= di.passing_score   AS is_pass
+    FROM t_drill dr
+    JOIN t_drill_item di ON di.id = dr.drill_item_id
+    WHERE dr.user_id = :athleteId
+),
+first_pass AS (
+    SELECT drill_item_id, MIN(session_num) AS sessions_to_pass
+    FROM ranked
+    WHERE is_pass = TRUE
+    GROUP BY drill_item_id
+),
+rounds AS (
+    SELECT COALESCE(ROUND(AVG(sessions_to_pass))::INTEGER, 0) AS rounds_to_pass
+    FROM first_pass
+)
 SELECT
     COALESCE(SUM(d.makes_reported), 0)                                      AS "totalMakes",
     COALESCE(SUM(d.attempts_reported), 0)                                   AS "totalAttempts",
     COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                  AS "sessionCount",
     COALESCE(MAX(d.makes_reported), 0)                                      AS "bestSessionMakes",
     COALESCE(MAX(GREATEST(d.attempts_reported - d.makes_reported, 0)), 0)   AS "worstSessionMisses",
-    COALESCE(
-        ROUND(
-            AVG(CASE WHEN d.drill_status = 'COMPLETE'
-                     THEN d.attempts_reported::FLOAT END)
-        )::INTEGER,
-        0
-    )                                                                       AS "roundsToPass"
+    COALESCE(MAX(s.best_make_streak), 0)                                    AS "bestMakeStreak",
+    COALESCE(MAX(s.worst_miss_streak), 0)                                   AS "worstMissStreak",
+    COALESCE(MAX(r.rounds_to_pass), 0)                                      AS "roundsToPass"
 FROM t_drill d
+CROSS JOIN streaks s
+CROSS JOIN rounds r
 WHERE d.user_id = :athleteId
 >>
 
 getSkillBreakdown(athleteId) ::= <<
-WITH mapped AS (
-    SELECT
-        d.id AS drill_id,
-        CASE t.code
-            WHEN 'PULL_UP_L'        THEN 'PULL_UP'
-            WHEN 'PULL_UP_R'        THEN 'PULL_UP'
-            WHEN 'STEP_BACK_L'      THEN 'STEP_BACK'
-            WHEN 'STEP_BACK_R'      THEN 'STEP_BACK'
-            WHEN '3PT'              THEN 'THREE_POINT'
-            WHEN '15FT'             THEN 'SHOOTING'
-            WHEN 'DEPTH_SHOOTING'   THEN 'SHOOTING'
-            WHEN 'CATCH_AND_SHOOT'  THEN 'CATCH_SHOOT'
-        END AS skill_code,
-        d.makes_reported,
-        d.attempts_reported
+WITH tag_map (db_code, skill_code) AS (
+    VALUES
+        ('PULL_UP_L',       'PULL_UP'),
+        ('PULL_UP_R',       'PULL_UP'),
+        ('STEP_BACK_L',     'STEP_BACK'),
+        ('STEP_BACK_R',     'STEP_BACK'),
+        ('3PT',             'THREE_POINT'),
+        ('15FT',            'SHOOTING'),
+        ('DEPTH_SHOOTING',  'SHOOTING'),
+        ('CATCH_AND_SHOOT', 'CATCH_SHOOT')
+),
+total_per_skill AS (
+    SELECT tm.skill_code, COUNT(DISTINCT dit.drill_item_id) AS total_drills
+    FROM t_drill_item_tag dit
+    JOIN t_tag t ON t.id = dit.tag_id
+    JOIN tag_map tm ON tm.db_code = t.code
+    GROUP BY tm.skill_code
+),
+attempted_per_skill AS (
+    SELECT tm.skill_code, COUNT(DISTINCT d.drill_item_id) AS drills_attempted
     FROM t_drill d
     JOIN t_drill_item di ON di.id = d.drill_item_id
     JOIN t_drill_item_tag dit ON dit.drill_item_id = di.id
     JOIN t_tag t ON t.id = dit.tag_id
+    JOIN tag_map tm ON tm.db_code = t.code
     WHERE d.user_id = :athleteId
-      AND t.code IN ('PULL_UP_L','PULL_UP_R','STEP_BACK_L','STEP_BACK_R',
-                     '3PT','15FT','DEPTH_SHOOTING','CATCH_AND_SHOOT')
-),
-deduped AS (
-    SELECT DISTINCT drill_id, skill_code, makes_reported, attempts_reported
-    FROM mapped
+      AND (d.attempts_reported > 0 OR d.attempts_detected > 0)
+    GROUP BY tm.skill_code
 )
 SELECT
-    skill_code                              AS "tagCode",
-    COALESCE(SUM(makes_reported), 0)        AS "totalMakes",
-    COALESCE(SUM(attempts_reported), 0)     AS "totalAttempts"
-FROM deduped
-GROUP BY skill_code
-HAVING COALESCE(SUM(attempts_reported), 0) > 0
+    tp.skill_code                                                                        AS "tagCode",
+    COALESCE(ROUND((ap.drills_attempted::FLOAT / NULLIF(tp.total_drills, 0)) * 100)::INTEGER, 0)   AS "coveragePercent"
+FROM total_per_skill tp
+LEFT JOIN attempted_per_skill ap ON ap.skill_code = tp.skill_code
+WHERE COALESCE(ap.drills_attempted, 0) > 0
 >>
 
 getDrillStats(athleteId, limit, offset) ::= <<

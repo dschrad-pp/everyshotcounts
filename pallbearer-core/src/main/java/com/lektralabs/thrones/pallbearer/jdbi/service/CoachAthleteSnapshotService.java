@@ -5,6 +5,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.CoachAthleteSnapshotDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserGroupPropertyRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserPropertyRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillGroupRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.AthleteSnapshotStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
@@ -47,6 +48,9 @@ public class CoachAthleteSnapshotService {
 
     @Inject
     UserGroupPropertyService userGroupPropertyService;
+
+    @Inject
+    DrillGroupService drillGroupService;
 
     private CoachAthleteSnapshotDao snapshotDao;
 
@@ -153,11 +157,44 @@ public class CoachAthleteSnapshotService {
         }
     }
 
-    public static String buildLevelLabel(int orderIndex) {
-        if (orderIndex > 0 && orderIndex % 3 == 0) {
-            return "Test " + (orderIndex / 3);
+    /**
+     * Returns a human-readable level label for the athlete's active drill group and position,
+     * e.g. "Beginner Level 3" or "Intermediate Test 2". Falls back to "Level X" if the group
+     * has no name or cannot be resolved.
+     */
+    public String getLevelLabel(UUID athleteId) {
+        Optional<UserPropertyRow> maybeGroup = userPropertyService
+                .findByKey(athleteId, UserPropertyConstants.USER_DRILL_GROUP_KEY);
+        if (maybeGroup.isEmpty()) {
+            return buildLevelLabel("", 1);
         }
-        return "Level " + orderIndex;
+        UUID activeGroupId;
+        try {
+            activeGroupId = UUID.fromString(maybeGroup.get().getPropertyValue());
+        } catch (IllegalArgumentException e) {
+            return buildLevelLabel("", 1);
+        }
+        String groupName = drillGroupService.findById(activeGroupId)
+                .flatMap(DrillGroupRow::getName)
+                .orElse("");
+        Optional<UserGroupPropertyRow> maybeIndex = userGroupPropertyService
+                .findByKey(athleteId, activeGroupId, UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY);
+        int orderIndex = 1;
+        if (maybeIndex.isPresent()) {
+            try {
+                orderIndex = (int) Double.parseDouble(maybeIndex.get().getPropertyValue());
+            } catch (NumberFormatException e) {
+                logger.warn("Unparseable order index for athlete {}", athleteId);
+            }
+        }
+        return buildLevelLabel(groupName, orderIndex);
+    }
+
+    public static String buildLevelLabel(String groupName, int orderIndex) {
+        String levelPart = (orderIndex > 0 && orderIndex % 3 == 0)
+                ? "Test " + (orderIndex / 3)
+                : "Level " + orderIndex;
+        return groupName == null || groupName.isBlank() ? levelPart : groupName + " " + levelPart;
     }
 
     public static int computeMakePercent(int totalMakes, int totalAttempts) {

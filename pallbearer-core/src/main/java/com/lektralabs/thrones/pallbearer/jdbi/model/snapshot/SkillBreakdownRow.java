@@ -9,6 +9,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SkillBreakdownRow {
     private String tagCode;
-    private int totalMakes;
-    private int totalAttempts;
+    private int coveragePercent;
 }
