@@ -2,6 +2,8 @@ package com.lektralabs.thrones.pallbearer.jdbi.service;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -17,7 +19,6 @@ import java.security.KeyFactory;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
@@ -43,6 +44,8 @@ public class ApnsService {
 
     @ConfigProperty(name = "apns.production", defaultValue = "false")
     boolean production;
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private ECPrivateKey privateKey;
     private HttpClient httpClient;
@@ -72,9 +75,11 @@ public class ApnsService {
             String athleteFirstName,
             String athleteLastName,
             String drillName,
+            UUID notificationId,
             UUID athleteId,
             UUID drillId,
             UUID drillItemId,
+            int badgeCount,
             Runnable onInvalidToken) {
         if (privateKey == null) {
             return;
@@ -84,16 +89,20 @@ public class ApnsService {
             String host = production ? APNS_HOST_PROD : APNS_HOST_SANDBOX;
             String url = host + "/3/device/" + deviceToken;
 
-            String body = String.format(
-                "{\"aps\":{\"alert\":{\"title\":\"Drill Completed\",\"body\":\"%s %s finished %s\"}," +
-                "\"badge\":1,\"sound\":\"default\"}," +
-                "\"type\":\"drill_completed\"," +
-                "\"athleteId\":\"%s\"," +
-                "\"drillId\":\"%s\"," +
-                "\"drillItemId\":\"%s\"}",
-                escapeJson(athleteFirstName), escapeJson(athleteLastName), escapeJson(drillName),
-                athleteId, drillId, drillItemId
-            );
+            ObjectNode root = MAPPER.createObjectNode();
+            ObjectNode aps = root.putObject("aps");
+            aps.putObject("alert")
+               .put("title", "Drill Completed")
+               .put("body", athleteFirstName + " " + athleteLastName + " finished " + drillName);
+            aps.put("badge", badgeCount);
+            aps.put("sound", "default");
+            root.put("type", "drill_completed");
+            root.put("notificationId", notificationId.toString());
+            root.put("athleteId", athleteId.toString());
+            root.put("drillId", drillId.toString());
+            root.put("drillItemId", drillItemId.toString());
+
+            String body = MAPPER.writeValueAsString(root);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -146,8 +155,4 @@ public class ApnsService {
         return (ECPrivateKey) KeyFactory.getInstance("EC").generatePrivate(spec);
     }
 
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

@@ -109,6 +109,7 @@ public class CoachNotificationService {
                     .creationDate(now)
                     .build();
             coachNotificationDao.insert(notification);
+            int badgeCount = coachNotificationDao.countUnreadByCoachId(coachId);
 
             Optional<DeviceTokenRow> tokenOpt = deviceTokenService.findByUserId(coachId, "ios");
             if (tokenOpt.isPresent()) {
@@ -117,9 +118,11 @@ public class CoachNotificationService {
                         athleteFirstName,
                         athleteLastName,
                         drillName,
+                        notification.getId(),
                         athleteId,
                         drillId,
                         drillItemId,
+                        badgeCount,
                         () -> deviceTokenService.deleteByUserId(coachId, "ios")
                 );
             }
