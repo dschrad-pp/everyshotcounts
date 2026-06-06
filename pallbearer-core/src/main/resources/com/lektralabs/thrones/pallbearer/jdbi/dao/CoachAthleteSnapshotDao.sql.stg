@@ -1,7 +1,7 @@
 group CoachAthleteSnapshotDao;
 
 getAthleteStats(athleteId) ::= <<
-WITH streaks AS (
+WITH streaks AS MATERIALIZED (
     SELECT
         COALESCE(MAX(dah.hot_streak), 0)  AS best_make_streak,
         COALESCE(MAX(dah.cold_streak), 0) AS worst_miss_streak
@@ -9,7 +9,7 @@ WITH streaks AS (
     JOIN t_drill d2 ON d2.id = dah.drill_id
     WHERE d2.user_id = :athleteId
 ),
-ranked AS (
+ranked AS MATERIALIZED (
     SELECT
         dr.drill_item_id,
         ROW_NUMBER() OVER (
@@ -27,7 +27,7 @@ first_pass AS (
     WHERE is_pass = TRUE
     GROUP BY drill_item_id
 ),
-rounds AS (
+rounds AS MATERIALIZED (
     SELECT COALESCE(ROUND(AVG(sessions_to_pass))::INTEGER, 0) AS rounds_to_pass
     FROM first_pass
 )

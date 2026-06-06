@@ -13,6 +13,7 @@ import jakarta.inject.Inject;
 
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.SqlLogger;
+import org.jdbi.v3.core.statement.SqlStatements;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jdbi.v3.stringtemplate4.StringTemplateEngine;
@@ -38,6 +39,9 @@ public class JdbiProvider {
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin())
                 .setTemplateEngine(new StringTemplateEngine());
+        // Prevent any single statement from hanging the HTTP response indefinitely.
+        // SQLTimeoutException will propagate as a 500 rather than leaving the client to time out.
+        jdbi.getConfig(SqlStatements.class).setQueryTimeout(15);
     }
 
     @Produces
