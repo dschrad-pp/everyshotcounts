@@ -127,6 +127,7 @@ media/
 # Markdown files - only keep README.md files
 *.md
 !README.md
+!refactor.md
 !**/README.md
 # Local overrides — not committed
 src/main/scripts/kstart.sh
