@@ -306,31 +306,21 @@ public class AthleteDrillService {
                 + " drill ID={} and sending to model for processing",
                 drillRow.getId());
 
-        if (!drillRow.getMediaId().isPresent()) {
+        // Always create a new media record/folder per submission so each attempt
+        // keeps its own video instead of overwriting a previous attempt's file.
+        Optional<UUID> maybeMediaId = galleryMediaService.addDrillMedia(
+                drillRow, fileName, videoFile);
 
-            Optional<UUID> maybeMediaId = galleryMediaService.addDrillMedia(
-                    drillRow, fileName, videoFile);
-
-            if (maybeMediaId.isPresent()) {
-                logger.info("Athlete drill service added media ID={}"
-                        + " to drill ID={}", maybeMediaId.get(), drillRow.getId());
-            } else {
-                logger.info("Athlete drill service failed to add media"
-                        + " to drill ID={}. See logs for errors",
-                        drillRow.getId());
-            }
-
-            return maybeMediaId;
+        if (maybeMediaId.isPresent()) {
+            logger.info("Athlete drill service added media ID={}"
+                    + " to drill ID={}", maybeMediaId.get(), drillRow.getId());
         } else {
-            Optional<UUID> mediaId = drillRow.getMediaId();
-            logger.info("Replacing existing media for drill ID={} with media ID={}",
-                    drillRow.getId(), mediaId);
-            galleryMediaService.resetGalleryMediaFolder(mediaId.get());
-            Optional<UUID> maybeMediaId = galleryMediaService.addDrillMedia(
-                    drillRow, fileName, videoFile);
-            return mediaId;
+            logger.info("Athlete drill service failed to add media"
+                    + " to drill ID={}. See logs for errors",
+                    drillRow.getId());
         }
 
+        return maybeMediaId;
     }
 
     public List<AthleteDrillDetail> findAllAthletesAssignedToCoach(UUID coachId) {

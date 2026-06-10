@@ -21,7 +21,6 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.apache.commons.io.FileUtils;
 
 @ApplicationScoped
 public class GalleryMediaService extends MediaBaseService implements MediaUtils {
@@ -248,33 +247,22 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
     public Optional<UUID> addDrillMedia(DrillRow drillRow,
             String fileName,
             File videoFile) {
-        UUID mediaId;
+        // Always create a new media record/folder per submission so each attempt
+        // keeps its own video instead of overwriting the previous attempt's file.
+        UUID mediaId = create(MediaPartial.builder()
+                .mediaId(Optional.of(UUID.randomUUID()))
+                .name(Optional.of(fileName))
+                .description(Optional.empty())
+                .contentUrl(Optional.empty())
+                .statusCode(MediaStatusConstants.PROCESSING)
+                .mimeType(Optional.of("video/mp4"))
+                .build());
 
-        if (drillRow.getMediaId().isPresent()) {
-            // Reuse existing mediaId
-            mediaId = drillRow.getMediaId().get();
-            logger.info(String.format("Replacing existing media for drill ID=%s with media ID=%s",
-                    drillRow.getId(), mediaId));
+        // Point the drill at the latest media (most recent attempt)
+        drillService.updateMediaId(drillRow.getId(), mediaId);
+        logger.info(String.format("Created new media ID=%s for drill ID=%s", mediaId, drillRow.getId()));
 
-            // Delete old files and recreate folder
-            resetGalleryMediaFolder(mediaId);
-        } else {
-            // Create new media
-            mediaId = create(MediaPartial.builder()
-                    .mediaId(Optional.of(UUID.randomUUID()))
-                    .name(Optional.of(fileName))
-                    .description(Optional.empty())
-                    .contentUrl(Optional.empty())
-                    .statusCode(MediaStatusConstants.PROCESSING)
-                    .mimeType(Optional.of("video/mp4"))
-                    .build());
-
-            // Update drill row with new mediaId
-            drillService.updateMediaId(drillRow.getId(), mediaId);
-            logger.info(String.format("Created new media ID=%s for drill ID=%s", mediaId, drillRow.getId()));
-        }
-
-        // Save new video file and re-run processing pipeline (for both cases)
+        // Save new video file and re-run processing pipeline
         galleryMediaPipeline.addDrillVideoMedia(drillRow.getId(), mediaId,
                 fileName, videoFile);
 
@@ -285,22 +273,6 @@ public class GalleryMediaService extends MediaBaseService implements MediaUtils 
         return Optional.of(mediaId);
     }
 
-    public void resetGalleryMediaFolder(UUID mediaId) {
-        String folderPath = galleryMediaStore.getGalleryMediaPath(mediaId);
-        File folder = new File(folderPath);
-
-        if (folder.exists()) {
-            try {
-                FileUtils.deleteDirectory(folder);
-                logger.info(String.format("Deleted existing gallery media folder: %s", folderPath));
-            } catch (IOException e) {
-                logger.error("Failed to delete gallery media folder: {}", folderPath, e);
-            }
-        }
-
-        // Recreate empty folder
-        galleryMediaStore.createGalleryMediaStore(mediaId);
-    }
 
     /**
      * Check if thumbnail exists for a media item, and generate it if it doesn't exist
