@@ -129,6 +129,7 @@ media/
 !README.md
 !refactor.md
 !**/README.md
+!todo.md
 # Local overrides — not committed
 src/main/scripts/kstart.sh
 pallbearer-api/src/main/resources/application.properties
