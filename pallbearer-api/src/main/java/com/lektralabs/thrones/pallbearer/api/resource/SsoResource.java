@@ -29,7 +29,7 @@ import com.lektralabs.thrones.pallbearer.api.auth.LoginRateLimiter;
 
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.core.Context;
-import io.vertx.core.http.HttpServerRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 
@@ -84,12 +84,12 @@ public class SsoResource {
     }
 
     /** Resolve the client IP, honouring a reverse proxy's X-Forwarded-For when present. */
-    private String clientIp(String forwardedFor, HttpServerRequest request) {
+    private String clientIp(String forwardedFor, HttpServletRequest request) {
         if (forwardedFor != null && !forwardedFor.isBlank()) {
             return forwardedFor.split(",")[0].trim();
         }
-        if (request != null && request.remoteAddress() != null) {
-            return request.remoteAddress().host();
+        if (request != null && request.getRemoteAddr() != null) {
+            return request.getRemoteAddr();
         }
         return "unknown";
     }
@@ -230,7 +230,7 @@ public class SsoResource {
     @PermitAll
     public Response adminLogin(LoginUser loginUser,
             @HeaderParam("X-Forwarded-For") String forwardedFor,
-            @Context HttpServerRequest httpRequest) {
+            @Context HttpServletRequest httpRequest) {
         if (loginUser == null || loginUser.getUsername() == null || loginUser.getUsername().isBlank()
                 || loginUser.getPassword() == null || loginUser.getPassword().isBlank()) {
             return authError(AuthErrorCode.VALIDATION_ERROR);
@@ -322,7 +322,7 @@ public class SsoResource {
     @PermitAll
     public Response crmLogin(LoginUser loginUser,
             @HeaderParam("X-Forwarded-For") String forwardedFor,
-            @Context HttpServerRequest httpRequest) {
+            @Context HttpServletRequest httpRequest) {
         String username = loginUser != null ? loginUser.getUsername() : null;
         String password = loginUser != null ? loginUser.getPassword() : null;
         String clientIp = clientIp(forwardedFor, httpRequest);
@@ -461,7 +461,7 @@ public class SsoResource {
 @PermitAll
 public Response coachLogin(LoginUser loginUser,
         @HeaderParam("X-Forwarded-For") String forwardedFor,
-        @Context HttpServerRequest httpRequest) {
+        @Context HttpServletRequest httpRequest) {
     String username = loginUser != null ? loginUser.getUsername() : null;
     String password = loginUser != null ? loginUser.getPassword() : null;
     String clientIp = clientIp(forwardedFor, httpRequest);
