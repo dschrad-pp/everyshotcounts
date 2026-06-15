@@ -1,3 +1,46 @@
+# 06/15/26 — Auth hardening follow-ups (SECURITY — do before public launch)
+
+Context: shipped login UX/security improvements to /api/sso (crm-login, coach-login,
+admin-login): machine-readable `error_code` field, 401+INVALID_CREDENTIALS for bad
+creds (no user enumeration), 403 REGISTRATION_INCOMPLETE / PAYMENT_REQUIRED, 503 for
+CRM/upstream outage, 429 + Retry-After brute-force lockout (LoginRateLimiter), and no
+more stack-trace leakage. The items below were found during that work but deferred —
+we deliberately LEFT them as-is for now so this push doesn't break prod.
+
+## 1. Hardcoded CRM service-account creds (LEFT IN ON PURPOSE — fix before launch)
+File: pallbearer-api/.../crm/CrmApiClient.java, getAccessToken()
+- Falls back to `rojan` / `rojan1234` if CRM_USERNAME / CRM_PASSWORD env vars are unset.
+- Confirmed on EC2 (2026-06-15): those env vars are NOT set and there is no
+  crm.username/crm.password in application.properties → prod has been authenticating
+  to the CRM as `rojan` this whole time.
+- The secret is in git history regardless, so the `rojan` CRM account must be ROTATED.
+- Fix when ready: set CRM_USERNAME / CRM_PASSWORD in the systemd drop-in
+  (/etc/systemd/system/quarkus-backend.service.d/override.conf), same pattern as the
+  APNS_PRODUCTION note below, then remove the hardcoded fallback so it fails closed.
+  The app already reads env vars via System.getenv here; once set they take effect
+  (restart required — dev mode reads them at process start).
+
+## 2. crm.ios.api.key inline default (CHECK — possible leaked key)
+File: pallbearer-api/src/main/resources/application.properties:125
+- Form is `crm.ios.api.key=${CRM_IOS_API_KEY:<default>}`. If <default> is a real key it
+  is committed to git. Confirm; if real, drop the inline default (fail closed) + rotate.
+
+## 3. Prod is running `mvn quarkus:dev` (DEV MODE in production)
+- quarkus-backend.service runs `quarkus:dev` from /var/www/html/pallbearer/pallbearer-api
+  with a JDWP debug agent listening on localhost:5005 and live hot-reload.
+- Risks: debug port, hot-reload, verbose error pages, slower, reads config live from the
+  source tree. Move to a packaged build (`quarkus:prod` / `java -jar ...-runner.jar`,
+  prod profile) for launch. Config then comes from the built app + env, not src/.
+
+## 4. Set CRM_USERNAME / CRM_PASSWORD on EC2 (ties #1 together)
+- Until set, #1's fallback is the only thing keeping CRM auth alive. Setting them is the
+  prerequisite for removing the hardcoded creds.
+
+## 5. (Optional) Rate limiter is process-local
+- LoginRateLimiter is in-memory (fine for the current single EC2 box, fails safe on
+  restart). If the backend is ever horizontally scaled, back it with a shared store
+  (e.g. Redis) so per-account/IP limits hold across instances.
+
 # 06/15/26 — Coaches should only see PASSING attempts
 
 Goal: in the coach-facing attempt history, hide attempts the athlete didn't pass
