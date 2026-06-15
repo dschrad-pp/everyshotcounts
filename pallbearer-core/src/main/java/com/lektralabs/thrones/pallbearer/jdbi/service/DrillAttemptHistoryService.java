@@ -66,6 +66,11 @@ public class DrillAttemptHistoryService {
         return drillAttemptHistoryDao.updateLatestAttemptMediaId(drillId, mediaId);
     }
 
+    public int updateMediaIdByAttemptLocalId(String attemptLocalId, UUID mediaId) {
+        logger.debug("Updating mediaId for attemptLocalId={}", attemptLocalId);
+        return drillAttemptHistoryDao.updateMediaIdByAttemptLocalId(attemptLocalId, mediaId);
+    }
+
     public int getAttemptCount(UUID userId, UUID drillId) {
         return drillAttemptHistoryDao.getAttemptCount(userId, drillId);
     }

@@ -541,6 +541,100 @@ public class DrillResource {
         }
     }
 
+    /**
+     * Associates an uploaded video with a specific drill attempt, keyed by the
+     * client-supplied stable {@code attemptLocalId} (a unique column on
+     * t_drill_attempt_history). This is the preferred way to attach video to an
+     * attempt — it targets exactly one row and does not depend on the drill's
+     * optimistic-lock version, so a failed attempt's video is no longer
+     * overwritten by a later passing retry.
+     * <p>
+     * The drill-level media pointer (t_drill.media_id) is also refreshed so the
+     * drill's "current" video / thumbnail stays meaningful, but attempt rows keep
+     * their own media_id independently.
+     */
+    @PATCH
+    @Path("/{drillItemId}/attempt/{attemptLocalId}/media")
+    @RolesAllowed({ "ADMIN", "ATHLETE", "COACH", "FAN", "USER" })
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response updateAttemptMedia(
+            @PathParam("drillItemId") UUID drillItemId,
+            @PathParam("attemptLocalId") String attemptLocalId,
+            UpdateDrillMediaRequest request) {
+        try {
+            if (request == null || request.getMediaId() == null) {
+                logger.error("❌ Invalid request: mediaId is null");
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "mediaId is required", null))
+                        .build();
+            }
+            if (attemptLocalId == null || attemptLocalId.isBlank()) {
+                return Response.status(400)
+                        .entity(new GenericApiResponse<>(400, "attemptLocalId is required", null))
+                        .build();
+            }
+
+            UUID userId;
+            try {
+                userId = currentUserUtils.getCurrentUserId();
+            } catch (Exception e) {
+                logger.error("❌ Failed to extract userId from token: {}", e.getMessage());
+                return Response.status(401)
+                        .entity(new GenericApiResponse<>(401, "Failed to extract user ID from token: " + e.getMessage(), null))
+                        .build();
+            }
+
+            UUID drillId;
+            if (request.getDrillId() != null) {
+                drillId = request.getDrillId();
+            } else {
+                java.util.Optional<DrillRow> drillRowOpt = drillService.findByDrillItemIdAndUserId(drillItemId, userId);
+                if (drillRowOpt == null || drillRowOpt.isEmpty()) {
+                    logger.error("❌ Drill not found for drillItemId={}, userId={}", drillItemId, userId);
+                    return Response.status(404)
+                            .entity(new GenericApiResponse<>(404, "Drill not found", null))
+                            .build();
+                }
+                drillId = drillRowOpt.get().getId();
+            }
+
+            int updated = drillService.updateAttemptMediaIdByLocalId(attemptLocalId, request.getMediaId());
+            if (updated == 0) {
+                logger.error("❌ No attempt found for attemptLocalId={}", attemptLocalId);
+                return Response.status(404)
+                        .entity(new GenericApiResponse<>(404, "Attempt not found for attemptLocalId", null))
+                        .build();
+            }
+
+            // Refresh the drill-level pointer so the drill's current video / thumbnail
+            // reflects the most recently attached media. Attempt rows are unaffected.
+            drillService.updateMediaId(drillId, request.getMediaId());
+            logger.info("✅ MediaId updated for attemptLocalId={}, mediaId={}, drillId={}", attemptLocalId, request.getMediaId(), drillId);
+
+            return drillService.findByIdWithHistory(drillId)
+                    .map(drillWithHistory -> Response.ok(
+                            new GenericApiResponse<>(200, "Attempt media updated successfully", drillWithHistory)).build())
+                    .orElseGet(() -> Response.status(404)
+                            .entity(new GenericApiResponse<>(404, "Drill not found after update", null)).build());
+
+        } catch (Exception e) {
+            logger.error("💥 Exception updating attempt media for attemptLocalId={}: {}", attemptLocalId, e.getMessage(), e);
+            return Response.status(500)
+                    .entity(new GenericApiResponse<>(500, "Failed to update attempt media: " + e.getMessage(), null))
+                    .build();
+        }
+    }
+
+    /**
+     * @deprecated Prefer {@link #updateAttemptMedia} which targets a single
+     *             attempt by its stable {@code attemptLocalId}. This version-based
+     *             PATCH cannot reliably distinguish attempts: on a version
+     *             mismatch it falls back to writing the latest attempt, so a
+     *             failed attempt's video can be lost. Retained for backward
+     *             compatibility with already-shipped clients.
+     */
+    @Deprecated
     @PATCH
     @Path("/{drillItemId}/media")
     @RolesAllowed({ "ADMIN", "ATHLETE", "COACH", "FAN", "USER" })

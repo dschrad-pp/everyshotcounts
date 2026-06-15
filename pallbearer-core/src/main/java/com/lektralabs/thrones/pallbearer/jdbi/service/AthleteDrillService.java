@@ -522,13 +522,13 @@ public class AthleteDrillService {
             List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
                     .findByDrillIdAndUserId(drillDetail.getId(), drillDetail.getUserId());
 
-            Optional<DrillAttemptHistoryRow> mostRecentAttempt = historyRows.stream()
-                    .max(Comparator.comparing(DrillAttemptHistoryRow::getRecordedAt));
-
+            // Return the full per-attempt history (already ordered recorded_at DESC) so
+            // the coach can view each attempt's own video — including failed attempts —
+            // rather than only the most recent attempt collapsed into a single row.
             drillDetail.setAttemptHistory(
-                    mostRecentAttempt
-                            .map(r -> Collections.singletonList(DrillAttemptHistoryResponse.from(r, serverBaseUrl)))
-                            .orElse(Collections.emptyList()));
+                    historyRows.stream()
+                            .map(r -> DrillAttemptHistoryResponse.from(r, serverBaseUrl))
+                            .collect(Collectors.toList()));
 
             if (drillItemRow.isPresent()) {
                 String mediaThumbnailUrl = null;

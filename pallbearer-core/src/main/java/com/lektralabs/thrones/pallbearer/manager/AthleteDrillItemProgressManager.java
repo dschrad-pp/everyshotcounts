@@ -61,6 +61,14 @@ public class AthleteDrillItemProgressManager {
         logger.info("⏳ Received request to complete drill. DrillItemId={}, AthleteUserId={}, DrillId={}",
                 drillItemId, athleteUserId, drillId);
 
+        // Capture the per-attempt media supplied by the client (if any) BEFORE the
+        // partial's mediaId is overwritten with the drill-level pointer below. The
+        // attempt row must carry its own media — echoing the drill-level media onto
+        // every attempt is what made all attempts show the latest video.
+        UUID attemptMediaId = drillPartial.getMediaId() != null
+                ? drillPartial.getMediaId().orElse(null)
+                : null;
+
         // Retry mechanism to handle optimistic lock failures
         int maxRetries = 3;
         int retryCount = 0;
@@ -90,7 +98,7 @@ public class AthleteDrillItemProgressManager {
                                 updateResult, drillItemId, athleteUserId);
 
                         insertAttemptHistory(drillRow.getId(), athleteUserId, drillPartial,
-                                drillRow.getMediaId().orElse(null), drillRow.getVersion());
+                                attemptMediaId, drillRow.getVersion());
 
                         // Account type check
                         if (athleteUserPropertyManager.isTrialAccount(athleteUserId)) {
@@ -175,7 +183,7 @@ public class AthleteDrillItemProgressManager {
                                     createdDrillId, drillItemId, athleteUserId);
 
                             insertAttemptHistory(newDrillRow.getId(), athleteUserId, drillPartial,
-                                    newDrillRow.getMediaId().orElse(null), newDrillRow.getVersion());
+                                    attemptMediaId, newDrillRow.getVersion());
 
                             // Account type check
                             if (athleteUserPropertyManager.isTrialAccount(athleteUserId)) {
