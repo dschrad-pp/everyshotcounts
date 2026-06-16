@@ -20,8 +20,8 @@ package com.lektralabs.thrones.pallbearer.api.auth;
  */
 public enum AuthErrorCode {
 
-    /** Missing/empty/malformed username or password. */
-    VALIDATION_ERROR(400, "Username and password are required"),
+    /** Missing/empty/malformed email or password. */
+    VALIDATION_ERROR(400, "Email and password are required"),
 
     /** Wrong password or unknown user — deliberately indistinguishable to the client. */
     INVALID_CREDENTIALS(401, "Incorrect email or password"),
