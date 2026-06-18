@@ -80,6 +80,7 @@ public class ApnsService {
             UUID drillId,
             UUID drillItemId,
             int badgeCount,
+            boolean scoreAdjusted,
             Runnable onInvalidToken) {
         if (privateKey == null) {
             return;
@@ -101,6 +102,7 @@ public class ApnsService {
             root.put("athleteId", athleteId.toString());
             root.put("drillId", drillId.toString());
             root.put("drillItemId", drillItemId.toString());
+            root.put("scoreAdjusted", scoreAdjusted);
 
             String body = MAPPER.writeValueAsString(root);
 

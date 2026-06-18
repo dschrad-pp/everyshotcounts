@@ -116,6 +116,11 @@ public class CoachNotificationResource {
         m.put("drillName", row.getDrillName());
         m.put("completedAt", Instant.ofEpochMilli(row.getCompletedAt()).toString());
         m.put("isRead", row.getIsRead());
+        m.put("scoreAdjusted", row.getScoreAdjusted());
+        m.put("makesDetected", row.getMakesDetected());
+        m.put("attemptsDetected", row.getAttemptsDetected());
+        m.put("makesReported", row.getMakesReported());
+        m.put("attemptsReported", row.getAttemptsReported());
         return m;
     }
 }

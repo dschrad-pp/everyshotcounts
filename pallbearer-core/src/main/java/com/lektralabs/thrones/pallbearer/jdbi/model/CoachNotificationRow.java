@@ -26,6 +26,11 @@ public class CoachNotificationRow implements Serializable {
     private Boolean isRead;
     private Boolean isDismissed;
     private Long creationDate;
+    private Boolean scoreAdjusted;
+    private Integer makesDetected;
+    private Integer attemptsDetected;
+    private Integer makesReported;
+    private Integer attemptsReported;
     private static final long serialVersionUID = 1L;
 
 }

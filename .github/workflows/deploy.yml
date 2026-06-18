@@ -1,28 +1,57 @@
 name: Build & Deploy
-#this is dummy comment to test the workflow
+
 on:
   push:
     branches:
       - feat/development
 
 jobs:
-  build-and-deploy:
+  # Gate: compile and run the full test suite. The deploy job below depends on
+  # this passing, so a build failure or any failing test blocks the EC2 deploy.
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build
+        run: mvn clean install -DskipTests=true
+
+      - name: Test
+        run: mvn test --fail-at-end
+
+  deploy:
+    # Only runs if build-and-test succeeds. If that job fails, this job is
+    # skipped entirely and nothing is shipped to EC2.
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Deploy to EC2
-        if: success()
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          # set -euo pipefail: any failing command (e.g. a broken build) aborts
+          # the script before the service is restarted, so a failed build never
+          # results in a restart onto broken/stale code.
           script: |
+            set -euo pipefail
             cd /var/www/html/pallbearer
             git pull origin feat/development
             mvn clean install -DskipTests=true
             sudo systemctl restart quarkus-backend.service
-            sudo systemctl status quarkus-backend.service
+            # Give the service a moment to come up, then verify it is actually
+            # running. If it failed to start, this fails the deploy loudly.
+            sleep 5
+            sudo systemctl is-active --quiet quarkus-backend.service
+            sudo systemctl status quarkus-backend.service --no-pager

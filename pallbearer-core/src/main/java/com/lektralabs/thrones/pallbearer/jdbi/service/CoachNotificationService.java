@@ -53,7 +53,8 @@ public class CoachNotificationService {
         this.teamDao = jdbiProvider.getJdbi().onDemand(TeamDao.class);
     }
 
-    public void createNotificationForDrillCompletion(UUID athleteId, UUID drillId, UUID drillItemId, Integer makesDetected) {
+    public void createNotificationForDrillCompletion(UUID athleteId, UUID drillId, UUID drillItemId,
+            Integer makesDetected, Integer attemptsDetected, Integer makesReported, Integer attemptsReported) {
         try {
             Optional<TeamRow> teamOpt = teamDao.findTeamByUserId(athleteId);
             if (teamOpt.isEmpty()) {
@@ -93,6 +94,15 @@ public class CoachNotificationService {
                 return;
             }
 
+            int makesDetectedValue = makesDetected != null ? makesDetected : 0;
+            int attemptsDetectedValue = attemptsDetected != null ? attemptsDetected : 0;
+            // A null reported value means the athlete did not override the AI-detected
+            // score, so it falls back to the detected value rather than 0.
+            int makesReportedValue = makesReported != null ? makesReported : makesDetectedValue;
+            int attemptsReportedValue = attemptsReported != null ? attemptsReported : attemptsDetectedValue;
+            boolean scoreAdjusted = isScoreAdjusted(makesDetectedValue, attemptsDetectedValue,
+                    makesReported, attemptsReported);
+
             long now = System.currentTimeMillis();
             CoachNotificationRow notification = CoachNotificationRow.builder()
                     .id(UUID.randomUUID())
@@ -107,6 +117,11 @@ public class CoachNotificationService {
                     .isRead(false)
                     .isDismissed(false)
                     .creationDate(now)
+                    .scoreAdjusted(scoreAdjusted)
+                    .makesDetected(makesDetectedValue)
+                    .attemptsDetected(attemptsDetectedValue)
+                    .makesReported(makesReportedValue)
+                    .attemptsReported(attemptsReportedValue)
                     .build();
             coachNotificationDao.insert(notification);
             int badgeCount = coachNotificationDao.countUnreadByCoachId(coachId);
@@ -123,12 +138,26 @@ public class CoachNotificationService {
                         drillId,
                         drillItemId,
                         badgeCount,
+                        scoreAdjusted,
                         () -> deviceTokenService.deleteByUserId(coachId, "ios")
                 );
             }
         } catch (Exception e) {
             logger.warnf(e, "Failed to create coach notification for drill completion: athleteId=%s drillId=%s", athleteId, drillId);
         }
+    }
+
+    /**
+     * Determines whether the athlete adjusted the AI-detected score. An adjustment is
+     * only inferred when the client actually supplied a reported value (non-null) that
+     * differs from the detected value. A null reported value means the athlete did not
+     * override the score, so it is never treated as an adjustment — this avoids a false
+     * positive on every AI-scored drill if a client omits the field.
+     */
+    static boolean isScoreAdjusted(int makesDetected, int attemptsDetected,
+            Integer makesReported, Integer attemptsReported) {
+        return (makesReported != null && makesReported != makesDetected)
+                || (attemptsReported != null && attemptsReported != attemptsDetected);
     }
 
     public List<CoachNotificationRow> findByCoachId(UUID coachId, int page, int limit) {

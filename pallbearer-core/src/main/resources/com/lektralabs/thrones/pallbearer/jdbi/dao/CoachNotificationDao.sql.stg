@@ -4,11 +4,15 @@ insert() ::= <<
     INSERT INTO t_coach_notification (
         id, coach_id, athlete_id, drill_id, drill_item_id,
         drill_name, athlete_first_name, athlete_last_name,
-        completed_at, is_read, is_dismissed, creation_date
+        completed_at, is_read, is_dismissed, creation_date,
+        score_adjusted, makes_detected, attempts_detected,
+        makes_reported, attempts_reported
     ) VALUES (
         :id, :coachId, :athleteId, :drillId, :drillItemId,
         :drillName, :athleteFirstName, :athleteLastName,
-        :completedAt, :isRead, :isDismissed, :creationDate
+        :completedAt, :isRead, :isDismissed, :creationDate,
+        :scoreAdjusted, :makesDetected, :attemptsDetected,
+        :makesReported, :attemptsReported
     )
 >>
 
@@ -25,6 +29,11 @@ findByCoachIdPaginated() ::= <<
          , is_read
          , is_dismissed
          , creation_date
+         , score_adjusted
+         , makes_detected
+         , attempts_detected
+         , makes_reported
+         , attempts_reported
       FROM t_coach_notification
      WHERE coach_id = :coachId
        AND is_dismissed = false
