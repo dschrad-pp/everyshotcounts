@@ -123,6 +123,11 @@ node_modules/
 # Media directories (large files)
 media/
 **/media/
+# ...but never ignore Java source packages named "media" (e.g. media.pipeline.*)
+!**/src/main/java/**/media/
+!**/src/main/java/**/media/**
+!**/src/test/java/**/media/
+!**/src/test/java/**/media/**
 
 # Markdown files - only keep README.md files
 *.md
