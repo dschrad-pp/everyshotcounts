@@ -84,6 +84,65 @@ LEFT JOIN attempted_per_skill ap ON ap.skill_code = tp.skill_code
 WHERE COALESCE(ap.drills_attempted, 0) > 0
 >>
 
+getSkillBreakdownByDifficulty(athleteId, difficultyGroupId) ::= <<
+<! Skill breakdown scoped to a single difficulty (drill group). Both the
+   numerator (attempted) and denominator (total) pools are restricted to
+   drill items whose drill_group_id = :difficultyGroupId. A skill with no
+   drills in the group produces no total_per_skill row and is therefore
+   omitted; the NULLIF guard remains as defence-in-depth. Because every
+   attempted in-group drill is also counted in the in-group total, the
+   ratio can never exceed 1 (no >100% values). !>
+WITH tag_map (db_code, skill_code) AS (
+    VALUES
+        ('PULL_UP_L',       'PULL_UP'),
+        ('PULL_UP_R',       'PULL_UP'),
+        ('STEP_BACK_L',     'STEP_BACK'),
+        ('STEP_BACK_R',     'STEP_BACK'),
+        ('3PT',             'THREE_POINT'),
+        ('15FT',            'SHOOTING'),
+        ('DEPTH_SHOOTING',  'SHOOTING'),
+        ('CATCH_AND_SHOOT', 'CATCH_SHOOT')
+),
+total_per_skill AS (
+    SELECT tm.skill_code, COUNT(DISTINCT dit.drill_item_id) AS total_drills
+    FROM t_drill_item_tag dit
+    JOIN t_tag t ON t.id = dit.tag_id
+    JOIN tag_map tm ON tm.db_code = t.code
+    JOIN t_drill_item di ON di.id = dit.drill_item_id
+    WHERE di.drill_group_id = :difficultyGroupId
+    GROUP BY tm.skill_code
+),
+attempted_per_skill AS (
+    SELECT tm.skill_code, COUNT(DISTINCT d.drill_item_id) AS drills_attempted
+    FROM t_drill d
+    JOIN t_drill_item di ON di.id = d.drill_item_id
+    JOIN t_drill_item_tag dit ON dit.drill_item_id = di.id
+    JOIN t_tag t ON t.id = dit.tag_id
+    JOIN tag_map tm ON tm.db_code = t.code
+    WHERE d.user_id = :athleteId
+      AND di.drill_group_id = :difficultyGroupId
+      AND (d.attempts_reported > 0 OR d.attempts_detected > 0)
+    GROUP BY tm.skill_code
+)
+SELECT
+    tp.skill_code                                                                        AS "tagCode",
+    COALESCE(ROUND((ap.drills_attempted::FLOAT / NULLIF(tp.total_drills, 0)) * 100)::INTEGER, 0)   AS "coveragePercent"
+FROM total_per_skill tp
+LEFT JOIN attempted_per_skill ap ON ap.skill_code = tp.skill_code
+WHERE COALESCE(ap.drills_attempted, 0) > 0
+>>
+
+getLowestDrillGroupId() ::= <<
+<! Deterministic fallback used when an athlete has no active drill group
+   set (USER_DRILL_GROUP_KEY missing/invalid): the lowest-order group
+   (Beginner). id is a stable tiebreaker. Never falls back to a
+   whole-catalog calculation. !>
+SELECT id
+  FROM t_drill_group
+ ORDER BY drill_group_order ASC NULLS LAST, id ASC
+ LIMIT 1
+>>
+
 getDrillStats(athleteId, limit, offset) ::= <<
 SELECT
     di.id                                                                        AS "drillItemId",

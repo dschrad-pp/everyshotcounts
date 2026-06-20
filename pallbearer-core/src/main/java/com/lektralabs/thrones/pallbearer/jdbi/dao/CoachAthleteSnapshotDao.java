@@ -24,6 +24,15 @@ public interface CoachAthleteSnapshotDao {
     @SqlQuery("getSkillBreakdown")
     List<SkillBreakdownRow> getSkillBreakdown(@Bind("athleteId") UUID athleteId);
 
+    @RegisterBeanMapper(SkillBreakdownRow.class)
+    @SqlQuery("getSkillBreakdownByDifficulty")
+    List<SkillBreakdownRow> getSkillBreakdownByDifficulty(
+            @Bind("athleteId") UUID athleteId,
+            @Bind("difficultyGroupId") UUID difficultyGroupId);
+
+    @SqlQuery("getLowestDrillGroupId")
+    UUID getLowestDrillGroupId();
+
     @RegisterBeanMapper(DrillStatsRow.class)
     @SqlQuery("getDrillStats")
     List<DrillStatsRow> getDrillStats(

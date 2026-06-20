@@ -1,12 +1,25 @@
 package com.lektralabs.thrones.pallbearer.jdbi.service;
 
+import com.lektralabs.thrones.pallbearer.common.UserPropertyConstants;
+import com.lektralabs.thrones.pallbearer.jdbi.dao.CoachAthleteSnapshotDao;
+import com.lektralabs.thrones.pallbearer.jdbi.model.UserPropertyRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class CoachAthleteSnapshotServiceTest {
 
@@ -157,5 +170,117 @@ public class CoachAthleteSnapshotServiceTest {
         assertNotNull(result);
         assertTrue(result.containsAll(List.of("PULL_UP_L", "PULL_UP_R", "3PT")));
         assertEquals(3, result.size());
+    }
+
+    // ── getSkillBreakdown: difficulty-scoping feature flag ────────────────────
+
+    private static final UUID ATHLETE = UUID.randomUUID();
+    private static final UUID ACTIVE_GROUP = UUID.randomUUID();
+    private static final UUID LOWEST_GROUP = UUID.randomUUID();
+
+    private CoachAthleteSnapshotService serviceWith(boolean flag,
+                                                    CoachAthleteSnapshotDao dao,
+                                                    UserPropertyService userProps) {
+        CoachAthleteSnapshotService s = new CoachAthleteSnapshotService();
+        s.scopeSkillBreakdownByDifficulty = flag;
+        s.snapshotDao = dao;
+        s.userPropertyService = userProps;
+        return s;
+    }
+
+    private UserPropertyRow propertyRow(String value) {
+        UserPropertyRow row = mock(UserPropertyRow.class);
+        when(row.getPropertyValue()).thenReturn(value);
+        return row;
+    }
+
+    @Test
+    void getSkillBreakdown_flagOff_usesWholeCatalogQuery() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(dao.getSkillBreakdown(ATHLETE)).thenReturn(List.of(new SkillBreakdownRow()));
+
+        CoachAthleteSnapshotService s = serviceWith(false, dao, userProps);
+        List<SkillBreakdownRow> result = s.getSkillBreakdown(ATHLETE);
+
+        assertEquals(1, result.size());
+        verify(dao).getSkillBreakdown(ATHLETE);
+        verify(dao, never()).getSkillBreakdownByDifficulty(any(), any());
+        verify(dao, never()).getLowestDrillGroupId();
+    }
+
+    @Test
+    void getSkillBreakdown_flagOn_activeGroupSet_usesDifficultyScopedQuery() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.of(propertyRow(ACTIVE_GROUP.toString())));
+        when(dao.getSkillBreakdownByDifficulty(ATHLETE, ACTIVE_GROUP))
+                .thenReturn(List.of(new SkillBreakdownRow()));
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+        List<SkillBreakdownRow> result = s.getSkillBreakdown(ATHLETE);
+
+        assertEquals(1, result.size());
+        verify(dao).getSkillBreakdownByDifficulty(ATHLETE, ACTIVE_GROUP);
+        verify(dao, never()).getSkillBreakdown(any());
+        verify(dao, never()).getLowestDrillGroupId();
+    }
+
+    @Test
+    void getSkillBreakdown_flagOn_noActiveGroup_fallsBackToLowestGroup() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.empty());
+        when(dao.getLowestDrillGroupId()).thenReturn(LOWEST_GROUP);
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+        s.getSkillBreakdown(ATHLETE);
+
+        verify(dao).getSkillBreakdownByDifficulty(ATHLETE, LOWEST_GROUP);
+    }
+
+    @Test
+    void getSkillBreakdown_flagOn_invalidGroupUuid_fallsBackToLowestGroup() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.of(propertyRow("not-a-uuid")));
+        when(dao.getLowestDrillGroupId()).thenReturn(LOWEST_GROUP);
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+        s.getSkillBreakdown(ATHLETE);
+
+        verify(dao).getSkillBreakdownByDifficulty(ATHLETE, LOWEST_GROUP);
+    }
+
+    @Test
+    void getSkillBreakdown_flagOn_noGroupsExist_returnsEmptyWithoutQuerying() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.empty());
+        when(dao.getLowestDrillGroupId()).thenReturn(null);
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+        List<SkillBreakdownRow> result = s.getSkillBreakdown(ATHLETE);
+
+        assertTrue(result.isEmpty());
+        verify(dao, never()).getSkillBreakdownByDifficulty(any(), any());
+        verify(dao, never()).getSkillBreakdown(any());
+    }
+
+    @Test
+    void resolveActiveDifficultyGroupId_validProperty_returnsThatGroup() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(eq(ATHLETE), eq(UserPropertyConstants.USER_DRILL_GROUP_KEY)))
+                .thenReturn(Optional.of(propertyRow(ACTIVE_GROUP.toString())));
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+
+        assertEquals(ACTIVE_GROUP, s.resolveActiveDifficultyGroupId(ATHLETE));
+        verify(dao, never()).getLowestDrillGroupId();
     }
 }

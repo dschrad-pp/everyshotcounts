@@ -15,6 +15,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +41,15 @@ public class CoachAthleteSnapshotService {
             "FOOTWORK",    List.of() // no existing DB tag for FOOTWORK; omitted from skill breakdown intentionally
     );
 
+    /**
+     * Feature flag for the metric redefinition that scopes skill-breakdown
+     * coverage to the athlete's active difficulty (drill group) instead of the
+     * whole catalog. Default off; enable after PM sign-off. Toggling it changes
+     * the {@code coveragePercent} values but never the response shape.
+     */
+    @ConfigProperty(name = "snapshot.skill-breakdown.scope-by-difficulty", defaultValue = "false")
+    boolean scopeSkillBreakdownByDifficulty;
+
     @Inject
     JdbiProvider jdbiProvider;
 
@@ -52,7 +62,7 @@ public class CoachAthleteSnapshotService {
     @Inject
     DrillGroupService drillGroupService;
 
-    private CoachAthleteSnapshotDao snapshotDao;
+    CoachAthleteSnapshotDao snapshotDao;
 
     @PostConstruct
     public void init() {
@@ -64,7 +74,37 @@ public class CoachAthleteSnapshotService {
     }
 
     public List<SkillBreakdownRow> getSkillBreakdown(UUID athleteId) {
-        return snapshotDao.getSkillBreakdown(athleteId);
+        if (!scopeSkillBreakdownByDifficulty) {
+            return snapshotDao.getSkillBreakdown(athleteId);
+        }
+        UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
+        if (difficultyGroupId == null) {
+            // No drill groups exist at all — nothing to scope coverage to. Omit
+            // the breakdown rather than silently reverting to the whole-catalog calc.
+            logger.warn("No drill group resolvable for athlete {}; returning empty skill breakdown", athleteId);
+            return Collections.emptyList();
+        }
+        return snapshotDao.getSkillBreakdownByDifficulty(athleteId, difficultyGroupId);
+    }
+
+    /**
+     * Resolves the athlete's active difficulty (drill group) for skill-breakdown
+     * scoping. Reads the same {@code USER_DRILL_GROUP_KEY} user property that powers
+     * the level label. When it is missing or unparseable, falls back deterministically
+     * to the lowest-order drill group (Beginner) — never to a whole-catalog calculation.
+     * Returns {@code null} only when no drill groups exist at all.
+     */
+    UUID resolveActiveDifficultyGroupId(UUID athleteId) {
+        Optional<UserPropertyRow> maybeGroup = userPropertyService
+                .findByKey(athleteId, UserPropertyConstants.USER_DRILL_GROUP_KEY);
+        if (maybeGroup.isPresent()) {
+            try {
+                return UUID.fromString(maybeGroup.get().getPropertyValue());
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid drill group UUID for athlete {}; falling back to lowest group", athleteId);
+            }
+        }
+        return snapshotDao.getLowestDrillGroupId();
     }
 
     public List<DrillStatsRow> getDrillStats(UUID athleteId, List<String> skillCodes, int page, int limit) {
