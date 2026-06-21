@@ -455,11 +455,11 @@ public class UserService implements CoreConstants, UserPropertyConstants {
     private void mapUserToTeam(RegisterUserPartial partial, UUID userId) {
         UUID teamId = partial.getTeamId();
         if (teamId == null) {
-            if ("COACH".equalsIgnoreCase(partial.getRole()) || "ATHLETE".equalsIgnoreCase(partial.getRole())) {
-                logger.infof("User %s (role=%s) has no teamId — skipping default team assignment", userId, partial.getRole());
+            if ("COACH".equalsIgnoreCase(partial.getRole())) {
+                logger.infof("Coach %s has no teamId — skipping default team assignment", userId);
                 return;
             }
-            logger.warnf("No teamId for user %s — falling back to default team", userId);
+            logger.warnf("No teamId for user %s — falling back to default team (Coach Prime's team)", userId);
             teamId = UUID.fromString("2a3b4697-26ee-4294-812e-6e1b00bd8e90");
         }
         try {
