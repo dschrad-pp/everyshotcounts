@@ -44,10 +44,12 @@ public class CoachAthleteSnapshotService {
     /**
      * Feature flag for the metric redefinition that scopes skill-breakdown
      * coverage to the athlete's active difficulty (drill group) instead of the
-     * whole catalog. Default off; enable after PM sign-off. Toggling it changes
-     * the {@code coveragePercent} values but never the response shape.
+     * whole catalog. Default on (PM-signed-off): the whole-catalog denominator
+     * produced misleadingly low (~1%) coverage. Set the config property to
+     * {@code false} to revert per-environment. Toggling it changes the
+     * {@code coveragePercent} values but never the response shape.
      */
-    @ConfigProperty(name = "snapshot.skill-breakdown.scope-by-difficulty", defaultValue = "false")
+    @ConfigProperty(name = "snapshot.skill-breakdown.scope-by-difficulty", defaultValue = "true")
     boolean scopeSkillBreakdownByDifficulty;
 
     @Inject
