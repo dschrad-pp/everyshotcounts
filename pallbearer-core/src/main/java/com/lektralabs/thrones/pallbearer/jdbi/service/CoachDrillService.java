@@ -19,6 +19,9 @@ import java.util.stream.Collectors;
 import java.util.Optional;
 
 import com.lektralabs.thrones.pallbearer.common.DrillGroupConstants;
+import com.lektralabs.thrones.pallbearer.common.UserPropertyConstants;
+import com.lektralabs.thrones.pallbearer.manager.AthleteMetricManager;
+import com.lektralabs.thrones.pallbearer.manager.AthleteUserPropertyManager;
 
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.CoachPartial;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.UserPropertyDao;
@@ -36,6 +39,12 @@ public class CoachDrillService {
 
     @Inject
     JdbiProvider jdbiProvider;
+
+    @Inject
+    AthleteMetricManager athleteMetricManager;
+
+    @Inject
+    AthleteUserPropertyManager athleteUserPropertyManager;
 
     CoachDao coachDao;
     UserPropertyDao userPropertyDao;
@@ -114,6 +123,22 @@ public class CoachDrillService {
                         .computeIfAbsent(groupName, k -> new HashMap<>())
                         .put(row.getPropertyKey(), row.getPropertyValue());
             }
+
+            // Overwrite the ACTIVE tier's level-completion %% with a live,
+            // passed-based recompute. The stored per-tier value goes stale the
+            // moment an athlete advances (it is only rewritten on drill submit),
+            // which is the stale-tier bug. Non-active tiers keep their stored
+            // value (the athlete has left them); the donut reads the active tier.
+            UUID activeGroupId = athleteUserPropertyManager.activeDrillGroup(athleteDetail.getUserId());
+            String activeGroupName = DrillGroupConstants.drillGroupIdNameMap
+                    .getOrDefault(activeGroupId, activeGroupId.toString());
+            int liveLevelPercent = athleteMetricManager
+                    .computeCurrentLevelCompletionPercent(athleteDetail.getUserId());
+            groupProperties
+                    .computeIfAbsent(activeGroupName, k -> new HashMap<>())
+                    .put(UserPropertyConstants.USER_METRIC_DRILL_LEVEL_COMPLETION_PERCENT,
+                            String.valueOf(liveLevelPercent));
+
             athleteDetail.setGroupProperties(groupProperties);
             athleteDetail.setUserProperties(camelCaseUserProperties);
         });

@@ -142,6 +142,70 @@ public class AthleteManagerUtils {
     }
 
     /**
+     * Return true if the athlete drill detail shows a PASSING submission — the
+     * drill is complete AND the athlete's reported makes meet or exceed the
+     * drill's passing score (makes-to-advance). A submitted-but-failed drill
+     * (e.g. 12 makes when 16 are required) is NOT passed.
+     * <p>
+     * This is intentionally stricter than {@link #isComplete} (which only means
+     * "submitted"). Level completion %% and level/group advancement are based on
+     * passing so that the donut and the athlete's level always agree; per-drill
+     * navigation/unlock continues to use {@link #isComplete}.
+     * <p>
+     * Level-test drills retain their original semantics: they advance on any
+     * attempt (a status other than NOT-ATTEMPTED), not on a passing score.
+     * A drill item with no passing score configured is treated as passed once
+     * complete.
+     *
+     * @param athleteDrillDetail Athlete drill detail
+     * @return True if the drill was passed
+     */
+    public boolean isPassed(AthleteDrillDetail athleteDrillDetail) {
+        Optional<DrillDetail> maybeDrillDetail = athleteDrillDetail.getDrillDetail();
+        if (maybeDrillDetail.isEmpty()) {
+            // no drill associated with drill item
+            return false;
+        }
+        DrillDetail drillDetail = maybeDrillDetail.get();
+        String drillStatus = drillDetail.getDrillStatus();
+
+        if (Boolean.TRUE.equals(athleteDrillDetail.getLevelTest())) {
+            return drillStatus != null
+                    && !drillStatus.equals(DrillStatusConstants.NOT_ATTEMPTED);
+        }
+
+        // A regular drill must first be complete (submitted + reviewed)...
+        if (drillStatus == null || !drillStatus.equals(DrillStatusConstants.COMPLETE)) {
+            return false;
+        }
+
+        Integer passingScore = athleteDrillDetail.getPassingScore();
+        if (passingScore == null) {
+            // No makes-to-advance threshold configured — completion is passing.
+            return true;
+        }
+
+        // A null reported value means the athlete did not override the
+        // AI-detected score, so it falls back to the detected value (mirrors the
+        // coach-notification contract).
+        Integer makes = drillDetail.getMakesReported() != null
+                ? drillDetail.getMakesReported()
+                : drillDetail.getMakesDetected();
+        return makes != null && makes >= passingScore;
+    }
+
+    /**
+     * Return the number of drill details that show a PASSING submission.
+     *
+     * @param athleteDrillDetails Athlete drill details
+     * @return Number of passed drills
+     * @see #isPassed(AthleteDrillDetail)
+     */
+    public int passedCount(List<AthleteDrillDetail> athleteDrillDetails) {
+        return (int) athleteDrillDetails.stream().filter(this::isPassed).count();
+    }
+
+    /**
      * Return true if the provided athlete drill details include the specified
      * drill group and the group is complete
      *
@@ -159,8 +223,10 @@ public class AthleteManagerUtils {
             // not complete if no group match
             return false;
         } else {
+            // Advancing the whole group requires every drill PASSED, not merely
+            // submitted — keeps tier advancement consistent with level %.
             List<AthleteDrillDetail> completed = details
-                    .stream().filter(this::isComplete).toList();
+                    .stream().filter(this::isPassed).toList();
             return completed.size() == details.size();
         }
     }
@@ -185,8 +251,12 @@ public class AthleteManagerUtils {
             logger.info("no group or level match");
             return false;
         } else {
+            // Advancing to the next level requires every drill in this level
+            // PASSED (makes >= passing score), not merely submitted. This is the
+            // same predicate that feeds the level-completion %% donut, so the
+            // athlete's level and their donut can never contradict each other.
             List<AthleteDrillDetail> completed = details
-                    .stream().filter(this::isComplete).toList();
+                    .stream().filter(this::isPassed).toList();
 
             for (AthleteDrillDetail drill : details) {
                 Optional<DrillDetail> maybeDrillDetail = drill.getDrillDetail();

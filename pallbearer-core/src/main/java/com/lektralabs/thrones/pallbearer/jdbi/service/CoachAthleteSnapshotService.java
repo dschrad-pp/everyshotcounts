@@ -11,6 +11,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
+import com.lektralabs.thrones.pallbearer.manager.AthleteMetricManager;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -64,6 +65,9 @@ public class CoachAthleteSnapshotService {
 
     @Inject
     DrillGroupService drillGroupService;
+
+    @Inject
+    AthleteMetricManager athleteMetricManager;
 
     CoachAthleteSnapshotDao snapshotDao;
 
@@ -201,31 +205,17 @@ public class CoachAthleteSnapshotService {
     }
 
     /**
-     * Returns the athlete's level progress percent (0–100). Defaults to 0 if not set.
+     * Returns the athlete's current-level progress percent (0–100).
+     * <p>
+     * Computed LIVE for the active group/level (passed ÷ total drills, floor-
+     * rounded) rather than read from the cached
+     * {@code user.metric.drill.level.completion.percent} property. The cached
+     * value goes stale per tier once an athlete advances; recomputing on read —
+     * the same way the shooting-zone aggregations work — permanently removes the
+     * stale-tier class of bug. Defaults to 0 when nothing can be resolved.
      */
     public int getLevelProgress(UUID athleteId) {
-        Optional<UserPropertyRow> maybeGroup = userPropertyService
-                .findByKey(athleteId, UserPropertyConstants.USER_DRILL_GROUP_KEY);
-        if (maybeGroup.isEmpty()) {
-            return 0;
-        }
-        UUID activeGroupId;
-        try {
-            activeGroupId = UUID.fromString(maybeGroup.get().getPropertyValue());
-        } catch (IllegalArgumentException e) {
-            return 0;
-        }
-        Optional<UserGroupPropertyRow> maybePct = userGroupPropertyService
-                .findByKey(athleteId, activeGroupId, UserPropertyConstants.USER_METRIC_DRILL_LEVEL_COMPLETION_PERCENT);
-        if (maybePct.isEmpty()) {
-            return 0;
-        }
-        try {
-            int pct = (int) Math.round(Double.parseDouble(maybePct.get().getPropertyValue()));
-            return Math.min(100, Math.max(0, pct));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+        return athleteMetricManager.computeCurrentLevelCompletionPercent(athleteId);
     }
 
     /**

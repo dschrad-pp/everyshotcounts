@@ -50,6 +50,50 @@ public class AthleteMetricManager {
     }
 
     /**
+     * Computes the athlete's current-level completion percent LIVE (0–100) for
+     * the active drill group/level — the authoritative source of truth for the
+     * coach donut. Read paths should call this instead of reading the cached
+     * {@code user.metric.drill.level.completion.percent} property, which goes
+     * stale per tier once the athlete advances.
+     * <p>
+     * Completion = drills PASSED (makes >= passing score) ÷ total drills in the
+     * current level. See {@link #levelCompletionPercent(int, int)} for rounding.
+     *
+     * @param athleteUserId Athlete user ID
+     * @return Current-level completion percent in [0, 100]
+     */
+    public int computeCurrentLevelCompletionPercent(UUID athleteUserId) {
+        UUID currentDrillGroupId = athleteUserPropertyManager
+                .activeDrillGroup(athleteUserId);
+        int currentOrderIndex = athleteUserPropertyManager
+                .activeDrillGroupOrderIndex(athleteUserId, currentDrillGroupId);
+        List<AthleteDrillDetail> athleteGroupDrillDetails = athleteDrillService
+                .findWithAthleteAndGroup(athleteUserId, currentDrillGroupId,
+                        FindOptions.builder().limit(9999).offset(0).build());
+        List<AthleteDrillDetail> levelDetails = athleteManagerUtils
+                .withOrderIndex(currentDrillGroupId, currentOrderIndex,
+                        athleteGroupDrillDetails);
+        return levelCompletionPercent(
+                athleteManagerUtils.passedCount(levelDetails), levelDetails.size());
+    }
+
+    /**
+     * Level completion percent from a passed/total ratio, FLOOR-rounded.
+     * <p>
+     * Floor (not ceiling or round-half-up) guarantees the donut reads 100% only
+     * when every drill in the level is passed: ceiling/round-half-up could show
+     * 100% with one drill still unpassed (e.g. 199/200 = 99.5 → 100), which is
+     * the exact "soft lie" this fix removes.
+     */
+    static int levelCompletionPercent(int passed, int total) {
+        if (total == 0) {
+            return 0;
+        }
+        int pct = (int) Math.floor((double) passed / (double) total * 100.0);
+        return Math.min(100, Math.max(0, pct));
+    }
+
+    /**
      * Updates the athlete's drill completion metrics for the current drill
      * group and current drill group level
      *
@@ -82,10 +126,13 @@ public class AthleteMetricManager {
         athleteUserPropertyManager.setCurrentGroupCompletionPercent(
                 athleteUserId, groupCompletionPercent, currentDrillGroupId);
 
-        int levelCompleteCount = athleteManagerUtils.completionCount(orderDetails);
+        // Level completion is PASSED ÷ total (not submitted ÷ total) and
+        // FLOOR-rounded — see levelCompletionPercent. This keeps the cached
+        // property consistent with the live read paths and the advance gate.
+        int levelPassedCount = athleteManagerUtils.passedCount(orderDetails);
         int levelCount = orderDetails.size();
-        String levelCompletionPercent = levelCount == 0 ? "0"
-                : decimalFormat.format(((double) levelCompleteCount / (double) levelCount) * 100.0);
+        String levelCompletionPercent =
+                String.valueOf(levelCompletionPercent(levelPassedCount, levelCount));
 
         athleteUserPropertyManager.setCurrentLevelCompletionPercent(
                 athleteUserId, levelCompletionPercent, currentDrillGroupId);
