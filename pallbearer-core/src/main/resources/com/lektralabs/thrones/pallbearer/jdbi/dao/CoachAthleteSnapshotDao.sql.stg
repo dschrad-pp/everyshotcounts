@@ -144,6 +144,55 @@ SELECT id
  LIMIT 1
 >>
 
+getShootingZonesByDifficulty(athleteId, difficultyGroupId) ::= <<
+<! Make/attempt totals per court zone for one athlete, scoped to a single
+   difficulty (drill group) — the same scoping the skill breakdown uses, so the
+   coach sees zone make% for the difficulty the athlete is currently on
+   (Beginner / Intermediate / …), not the whole catalogue.
+
+   Source of truth: shot counts are recorded per drill *session* on t_drill
+   (makes_reported / attempts_reported), never per individual shot, so a session
+   is attributed to a zone through its drill item's shot-type tags. Each zone is
+   an independent metric — "of the shots you took at drills tagged for this
+   zone, what % went in" — mirroring how skillBreakdown / getDrillStats filter
+   by tag membership. A combo drill (e.g. "15 ft → 3-Point") therefore counts
+   toward BOTH the 15ft and 3pt zones; this is intentional and does not partition
+   the overall make% (which is computed separately).
+
+   Zone tag mapping:
+     THREE_POINT  <- 3PT, DEPTH_SHOOTING   (both beyond the arc)
+     FIFTEEN_FEET <- 15FT
+     FREE_THROW   <- FREE_THROW_ROUTINE
+   item_zone is DISTINCT on (drill_item, zone) so a drill item carrying two tags
+   that map to the same zone (3PT + DEPTH_SHOOTING) is still counted once per
+   zone — no within-zone double-count. Drill items with no zone tag are excluded.
+   Only zones with data are returned; three-zone padding and makePercent are
+   applied in the service/response layer. !>
+WITH zone_map (db_code, zone_code) AS (
+    VALUES
+        ('3PT',                'THREE_POINT'),
+        ('DEPTH_SHOOTING',     'THREE_POINT'),
+        ('15FT',               'FIFTEEN_FEET'),
+        ('FREE_THROW_ROUTINE', 'FREE_THROW')
+),
+item_zone AS (
+    SELECT DISTINCT dit.drill_item_id, zm.zone_code
+    FROM t_drill_item_tag dit
+    JOIN t_tag t     ON t.id = dit.tag_id
+    JOIN zone_map zm ON zm.db_code = t.code
+)
+SELECT
+    iz.zone_code                                      AS "zoneCode",
+    COALESCE(SUM(d.makes_reported), 0)::INTEGER       AS "totalMakes",
+    COALESCE(SUM(d.attempts_reported), 0)::INTEGER    AS "totalAttempts"
+FROM t_drill d
+JOIN t_drill_item di ON di.id = d.drill_item_id
+JOIN item_zone iz    ON iz.drill_item_id = d.drill_item_id
+WHERE d.user_id = :athleteId
+  AND di.drill_group_id = :difficultyGroupId
+GROUP BY iz.zone_code
+>>
+
 getDrillStats(athleteId, limit, offset) ::= <<
 SELECT
     di.id                                                                        AS "drillItemId",

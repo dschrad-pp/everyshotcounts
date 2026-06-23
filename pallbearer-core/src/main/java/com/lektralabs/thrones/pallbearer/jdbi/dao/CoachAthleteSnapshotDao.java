@@ -3,6 +3,7 @@ package com.lektralabs.thrones.pallbearer.jdbi.dao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.AthleteSnapshotStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -32,6 +33,12 @@ public interface CoachAthleteSnapshotDao {
 
     @SqlQuery("getLowestDrillGroupId")
     UUID getLowestDrillGroupId();
+
+    @RegisterBeanMapper(ShootingZoneRow.class)
+    @SqlQuery("getShootingZonesByDifficulty")
+    List<ShootingZoneRow> getShootingZonesByDifficulty(
+            @Bind("athleteId") UUID athleteId,
+            @Bind("difficultyGroupId") UUID difficultyGroupId);
 
     @RegisterBeanMapper(DrillStatsRow.class)
     @SqlQuery("getDrillStats")

@@ -160,6 +160,14 @@ public class CoachResource {
                         row.getCoveragePercent()))
                 .collect(Collectors.toList());
 
+        List<PlayerSnapshotResponse.ShootingZone> shootingZones = snapshotService.getShootingZones(athleteId).stream()
+                .map(zone -> new PlayerSnapshotResponse.ShootingZone(
+                        zone.getZoneCode(),
+                        CoachAthleteSnapshotService.computeMakePercent(zone.getTotalMakes(), zone.getTotalAttempts()),
+                        zone.getTotalMakes(),
+                        zone.getTotalAttempts()))
+                .collect(Collectors.toList());
+
         String firstName = (athlete.getContactItem() != null) ? athlete.getContactItem().getFirstName() : "";
         String lastName = (athlete.getContactItem() != null) ? athlete.getContactItem().getLastName() : "";
         String name = (firstName + " " + lastName).trim();
@@ -180,6 +188,7 @@ public class CoachResource {
                 .roundsToPass(stats.getRoundsToPass())
                 .levelProgress(levelProgress)
                 .skillBreakdown(skillBreakdown)
+                .shootingZones(shootingZones)
                 .build();
 
         return Response.ok(new GenericApiResponse<>(200, "Success", snapshot)).build();

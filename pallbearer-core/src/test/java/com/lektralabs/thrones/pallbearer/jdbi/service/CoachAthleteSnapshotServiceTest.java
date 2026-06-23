@@ -3,6 +3,7 @@ package com.lektralabs.thrones.pallbearer.jdbi.service;
 import com.lektralabs.thrones.pallbearer.common.UserPropertyConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.CoachAthleteSnapshotDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserPropertyRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 
 import org.junit.jupiter.api.Test;
@@ -269,6 +270,105 @@ public class CoachAthleteSnapshotServiceTest {
         assertTrue(result.isEmpty());
         verify(dao, never()).getSkillBreakdownByDifficulty(any(), any());
         verify(dao, never()).getSkillBreakdown(any());
+    }
+
+    // ── getShootingZones: always three zones, fixed order, difficulty-scoped ──
+
+    /**
+     * Builds a service whose active-difficulty resolution returns {@link #ACTIVE_GROUP}
+     * (USER_DRILL_GROUP_KEY set), with the given DAO wired in.
+     */
+    private CoachAthleteSnapshotService zoneServiceWithActiveGroup(CoachAthleteSnapshotDao dao) {
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.of(propertyRow(ACTIVE_GROUP.toString())));
+        return serviceWith(true, dao, userProps);
+    }
+
+    @Test
+    void getShootingZones_scopesToActiveDifficultyGroup() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        when(dao.getShootingZonesByDifficulty(ATHLETE, ACTIVE_GROUP)).thenReturn(List.of());
+
+        zoneServiceWithActiveGroup(dao).getShootingZones(ATHLETE);
+
+        verify(dao).getShootingZonesByDifficulty(ATHLETE, ACTIVE_GROUP);
+    }
+
+    @Test
+    void getShootingZones_noActiveGroup_fallsBackToLowestGroup() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.empty());
+        when(dao.getLowestDrillGroupId()).thenReturn(LOWEST_GROUP);
+        when(dao.getShootingZonesByDifficulty(ATHLETE, LOWEST_GROUP)).thenReturn(List.of());
+
+        serviceWith(true, dao, userProps).getShootingZones(ATHLETE);
+
+        verify(dao).getShootingZonesByDifficulty(ATHLETE, LOWEST_GROUP);
+    }
+
+    @Test
+    void getShootingZones_noGroupsExist_returnsAllThreeZeroedWithoutQuerying() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.empty());
+        when(dao.getLowestDrillGroupId()).thenReturn(null);
+
+        List<ShootingZoneRow> zones = serviceWith(true, dao, userProps).getShootingZones(ATHLETE);
+
+        assertEquals(List.of("THREE_POINT", "FIFTEEN_FEET", "FREE_THROW"),
+                zones.stream().map(ShootingZoneRow::getZoneCode).toList());
+        assertTrue(zones.stream().allMatch(z -> z.getTotalMakes() == 0 && z.getTotalAttempts() == 0));
+        verify(dao, never()).getShootingZonesByDifficulty(any(), any());
+    }
+
+    @Test
+    void getShootingZones_noData_returnsAllThreeZonesZeroedInOrder() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        when(dao.getShootingZonesByDifficulty(ATHLETE, ACTIVE_GROUP)).thenReturn(List.of());
+
+        List<ShootingZoneRow> zones = zoneServiceWithActiveGroup(dao).getShootingZones(ATHLETE);
+
+        assertEquals(List.of("THREE_POINT", "FIFTEEN_FEET", "FREE_THROW"),
+                zones.stream().map(ShootingZoneRow::getZoneCode).toList());
+        assertTrue(zones.stream().allMatch(z -> z.getTotalMakes() == 0 && z.getTotalAttempts() == 0));
+    }
+
+    @Test
+    void getShootingZones_partialData_padsMissingZonesAndKeepsOrder() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        // DAO returns only the zone(s) with data, in arbitrary order
+        when(dao.getShootingZonesByDifficulty(ATHLETE, ACTIVE_GROUP))
+                .thenReturn(List.of(new ShootingZoneRow("FREE_THROW", 9, 10)));
+
+        List<ShootingZoneRow> zones = zoneServiceWithActiveGroup(dao).getShootingZones(ATHLETE);
+
+        assertEquals(3, zones.size());
+        assertEquals(List.of("THREE_POINT", "FIFTEEN_FEET", "FREE_THROW"),
+                zones.stream().map(ShootingZoneRow::getZoneCode).toList());
+        assertEquals(0, zones.get(0).getTotalAttempts());
+        assertEquals(0, zones.get(1).getTotalAttempts());
+        assertEquals(9, zones.get(2).getTotalMakes());
+        assertEquals(10, zones.get(2).getTotalAttempts());
+    }
+
+    @Test
+    void getShootingZones_allZonesPresent_reordersToCanonicalOrder() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        when(dao.getShootingZonesByDifficulty(ATHLETE, ACTIVE_GROUP)).thenReturn(List.of(
+                new ShootingZoneRow("FREE_THROW", 5, 6),
+                new ShootingZoneRow("FIFTEEN_FEET", 40, 100),
+                new ShootingZoneRow("THREE_POINT", 63, 180)));
+
+        List<ShootingZoneRow> zones = zoneServiceWithActiveGroup(dao).getShootingZones(ATHLETE);
+
+        assertEquals(List.of("THREE_POINT", "FIFTEEN_FEET", "FREE_THROW"),
+                zones.stream().map(ShootingZoneRow::getZoneCode).toList());
+        assertEquals(63, zones.get(0).getTotalMakes());
+        assertEquals(180, zones.get(0).getTotalAttempts());
     }
 
     @Test

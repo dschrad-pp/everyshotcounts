@@ -28,6 +28,7 @@ public class PlayerSnapshotResponse {
     private int roundsToPass;
     private int levelProgress;
     private List<SkillBreakdown> skillBreakdown;
+    private List<ShootingZone> shootingZones;
 
     @Data
     @AllArgsConstructor
@@ -35,5 +36,15 @@ public class PlayerSnapshotResponse {
     public static class SkillBreakdown {
         private String tagCode;
         private int coveragePercent;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ShootingZone {
+        private String zoneCode;
+        private int makePercent;
+        private int totalMakes;
+        private int totalAttempts;
     }
 }

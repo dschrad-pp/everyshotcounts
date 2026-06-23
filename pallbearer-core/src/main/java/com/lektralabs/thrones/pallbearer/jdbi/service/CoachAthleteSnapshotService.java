@@ -9,6 +9,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillGroupRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.AthleteSnapshotStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 
 import jakarta.annotation.PostConstruct;
@@ -107,6 +108,34 @@ public class CoachAthleteSnapshotService {
             }
         }
         return snapshotDao.getLowestDrillGroupId();
+    }
+
+    /**
+     * Fixed display order for shooting zones. The snapshot always returns all
+     * three, in this order, even when the athlete has no attempts in a zone.
+     */
+    static final List<String> SHOOTING_ZONE_ORDER = List.of("THREE_POINT", "FIFTEEN_FEET", "FREE_THROW");
+
+    /**
+     * Returns the athlete's make/attempt totals for every court zone, always as
+     * exactly three rows in {@link #SHOOTING_ZONE_ORDER}, scoped to the athlete's
+     * currently-active difficulty (drill group). The active difficulty is
+     * resolved the same way as the skill breakdown and level label
+     * ({@link #resolveActiveDifficultyGroupId(UUID)}): the {@code USER_DRILL_GROUP_KEY}
+     * property, falling back to the lowest (Beginner) group. Zones the athlete
+     * has no data in for that difficulty are padded with zero makes/attempts.
+     * When no drill groups exist at all, every zone is returned zeroed.
+     */
+    public List<ShootingZoneRow> getShootingZones(UUID athleteId) {
+        UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
+        List<ShootingZoneRow> rows = (difficultyGroupId == null)
+                ? Collections.emptyList()
+                : snapshotDao.getShootingZonesByDifficulty(athleteId, difficultyGroupId);
+        Map<String, ShootingZoneRow> byZone = rows.stream()
+                .collect(Collectors.toMap(ShootingZoneRow::getZoneCode, row -> row, (a, b) -> a));
+        return SHOOTING_ZONE_ORDER.stream()
+                .map(zone -> byZone.getOrDefault(zone, new ShootingZoneRow(zone, 0, 0)))
+                .collect(Collectors.toList());
     }
 
     public List<DrillStatsRow> getDrillStats(UUID athleteId, List<String> skillCodes, int page, int limit) {
