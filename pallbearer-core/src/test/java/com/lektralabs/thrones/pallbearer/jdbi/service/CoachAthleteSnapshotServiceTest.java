@@ -3,6 +3,7 @@ package com.lektralabs.thrones.pallbearer.jdbi.service;
 import com.lektralabs.thrones.pallbearer.common.UserPropertyConstants;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.CoachAthleteSnapshotDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserPropertyRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillGroupRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 
@@ -369,6 +370,39 @@ public class CoachAthleteSnapshotServiceTest {
                 zones.stream().map(ShootingZoneRow::getZoneCode).toList());
         assertEquals(63, zones.get(0).getTotalMakes());
         assertEquals(180, zones.get(0).getTotalAttempts());
+    }
+
+    // ── getDifficultyTier: tier name matches the zone scope ───────────────────
+
+    @Test
+    void getDifficultyTier_returnsTierNameForActiveGroup() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.of(propertyRow(ACTIVE_GROUP.toString())));
+        DrillGroupService groups = mock(DrillGroupService.class);
+        DrillGroupRow row = mock(DrillGroupRow.class);
+        when(row.getName()).thenReturn(Optional.of("Advanced"));
+        when(groups.findById(ACTIVE_GROUP)).thenReturn(Optional.of(row));
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+        s.drillGroupService = groups;
+
+        // Tier only — no "Level N" suffix, so the label never implies a level cap.
+        assertEquals("Advanced", s.getDifficultyTier(ATHLETE));
+    }
+
+    @Test
+    void getDifficultyTier_noGroupsExist_returnsEmptyString() {
+        CoachAthleteSnapshotDao dao = mock(CoachAthleteSnapshotDao.class);
+        UserPropertyService userProps = mock(UserPropertyService.class);
+        when(userProps.findByKey(ATHLETE, UserPropertyConstants.USER_DRILL_GROUP_KEY))
+                .thenReturn(Optional.empty());
+        when(dao.getLowestDrillGroupId()).thenReturn(null);
+
+        CoachAthleteSnapshotService s = serviceWith(true, dao, userProps);
+
+        assertEquals("", s.getDifficultyTier(ATHLETE));
     }
 
     @Test

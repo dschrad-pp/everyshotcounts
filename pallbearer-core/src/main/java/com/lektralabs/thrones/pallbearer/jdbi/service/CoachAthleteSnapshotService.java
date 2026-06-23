@@ -261,6 +261,24 @@ public class CoachAthleteSnapshotService {
         return buildLevelLabel(groupName, orderIndex);
     }
 
+    /**
+     * Returns just the athlete's current difficulty TIER name (e.g. "Beginner",
+     * "Intermediate", "Advanced", "Elite") — no level/sub-level suffix. Resolved
+     * via {@link #resolveActiveDifficultyGroupId(UUID)}, the SAME group id the
+     * shooting-zone aggregation is scoped to, so this label always matches the
+     * span of those numbers (the whole tier, every level, no level cap). Falls
+     * back to an empty string when no tier can be resolved.
+     */
+    public String getDifficultyTier(UUID athleteId) {
+        UUID tierGroupId = resolveActiveDifficultyGroupId(athleteId);
+        if (tierGroupId == null) {
+            return "";
+        }
+        return drillGroupService.findById(tierGroupId)
+                .flatMap(DrillGroupRow::getName)
+                .orElse("");
+    }
+
     public static String buildLevelLabel(String groupName, int orderIndex) {
         String levelPart = (orderIndex > 0 && orderIndex % 3 == 0)
                 ? "Test " + (orderIndex / 3)

@@ -151,6 +151,7 @@ public class CoachResource {
         int overallMakePercent = CoachAthleteSnapshotService.computeMakePercent(stats.getTotalMakes(), stats.getTotalAttempts());
 
         String levelLabel = snapshotService.getLevelLabel(athleteId);
+        String difficultyTier = snapshotService.getDifficultyTier(athleteId);
         int levelProgress = snapshotService.getLevelProgress(athleteId);
 
         List<SkillBreakdownRow> skillRows = snapshotService.getSkillBreakdown(athleteId);
@@ -176,6 +177,7 @@ public class CoachResource {
                 .id(athleteId.toString())
                 .name(name)
                 .levelLabel(levelLabel)
+                .difficultyTier(difficultyTier)
                 .sessionCount(stats.getSessionCount())
                 .overallMakePercent(overallMakePercent)
                 .makePercent(overallMakePercent)

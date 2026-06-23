@@ -16,6 +16,7 @@ public class PlayerSnapshotResponse {
     private String id;
     private String name;
     private String levelLabel;
+    private String difficultyTier;
     private int sessionCount;
     private int overallMakePercent;
     private int makePercent;
