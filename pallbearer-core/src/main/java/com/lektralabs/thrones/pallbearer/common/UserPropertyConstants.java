@@ -41,10 +41,9 @@ public interface UserPropertyConstants {
     // possible values for the user registration payment state
     String USER_REGISTRATION_PAYMENT_STATE_PAID = "PAID";
     String USER_REGISTRATION_PAYMENT_STATE_TRIAL = "TRAIL";
-
+    String USER_REGISTRATION_PAYMENT_STATE_PARTIAL = "PARTIAL";
     // six digit code to identify user
     String USER_REGISTRATION_SIX_DIGIT_CODE_KEY = "user.registration.sixdigit.code";
-
     //
     // Terms and Conditions
     String USER_TERMS_AND_CONDITIONS_ACCEPT = "user.terms.and.conditions.accept";

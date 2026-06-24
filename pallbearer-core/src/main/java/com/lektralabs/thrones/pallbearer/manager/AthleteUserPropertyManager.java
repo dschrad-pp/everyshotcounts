@@ -125,44 +125,56 @@ public class AthleteUserPropertyManager {
      * @param athleteUserId Athlete user ID
      * @return Active drill group level identifier
      */
+    // public String activeDrillGroupLevelIdentifier(UUID athleteUserId, UUID currentDrillGroupId) {
+    //     if (isPaidAccount(athleteUserId)) {
+    //         // most likely case is that user is a paid user
+    //         String propKey = UserPropertyConstants.USER_DRILL_GROUP_LEVEL_KEY;
+    //         Optional<UserGroupPropertyRow> maybeRow = userGroupPropertyService.findByKey(athleteUserId, currentDrillGroupId, propKey);
+    //         if (maybeRow.isEmpty()) {
+    //             return "1.0";
+    //         } else {
+    //             return maybeRow.get().getPropertyValue();
+    //         }
+    //     } else if (isTrialAccount(athleteUserId)) {
+    //         // trial accounts only ever have level 1 active
+    //         return "1.0";
+    //     } else {
+    //         // something is wrong...
+    //         return "1.0";
+    //     }
+    // }
     public String activeDrillGroupLevelIdentifier(UUID athleteUserId, UUID currentDrillGroupId) {
-        if (isPaidAccount(athleteUserId)) {
-            // most likely case is that user is a paid user
-            String propKey = UserPropertyConstants.USER_DRILL_GROUP_LEVEL_KEY;
-            Optional<UserGroupPropertyRow> maybeRow = userGroupPropertyService.findByKey(athleteUserId, currentDrillGroupId, propKey);
-            if (maybeRow.isEmpty()) {
-                return "1.0";
-            } else {
-                return maybeRow.get().getPropertyValue();
-            }
-        } else if (isTrialAccount(athleteUserId)) {
-            // trial accounts only ever have level 1 active
-            return "1.0";
-        } else {
-            // something is wrong...
-            return "1.0";
-        }
-    }
+        String propKey = UserPropertyConstants.USER_DRILL_GROUP_LEVEL_KEY;
+        Optional<UserGroupPropertyRow> maybeRow = userGroupPropertyService
+                .findByKey(athleteUserId, currentDrillGroupId, propKey);
+        return maybeRow.map(UserGroupPropertyRow::getPropertyValue).orElse("1.0");
+}
 
     public String activeDrillGroupOrderIndexIdentifier(UUID athleteUserId, UUID currentDrillGroupId) {
-        if (isPaidAccount(athleteUserId)) {
-            String propKey = UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY;
-            Optional<UserGroupPropertyRow> maybeRow = userGroupPropertyService.findByKey(athleteUserId, currentDrillGroupId, propKey);
-            if (maybeRow.isEmpty()) {
-                logger.info("no order index found");
-                return "1.0";
-            } else {
-                logger.info("order index found");
-                return maybeRow.get().getPropertyValue();
-            }
-        } else if (isTrialAccount(athleteUserId)) {
-            // trial accounts only ever have order index 1 active
-            logger.info("is trail account");
-            return "1.0";
-        } else {
-            return "1.0";
-        }
+        String propKey = UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY;
+        Optional<UserGroupPropertyRow> maybeRow = userGroupPropertyService
+                .findByKey(athleteUserId, currentDrillGroupId, propKey);
+        return maybeRow.map(UserGroupPropertyRow::getPropertyValue).orElse("1.0");
     }
+    // public String activeDrillGroupOrderIndexIdentifier(UUID athleteUserId, UUID currentDrillGroupId) {
+    //     if (isPaidAccount(athleteUserId)) {
+    //         String propKey = UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY;
+    //         Optional<UserGroupPropertyRow> maybeRow = userGroupPropertyService.findByKey(athleteUserId, currentDrillGroupId, propKey);
+    //         if (maybeRow.isEmpty()) {
+    //             logger.info("no order index found");
+    //             return "1.0";
+    //         } else {
+    //             logger.info("order index found");
+    //             return maybeRow.get().getPropertyValue();
+    //         }
+    //     } else if (isTrialAccount(athleteUserId)) {
+    //         // trial accounts only ever have order index 1 active
+    //         logger.info("is trail account");
+    //         return "1.0";
+    //     } else {
+    //         return "1.0";
+    //     }
+    // }
 
     /**
      * Return the currently active drill group level index for the athlete
