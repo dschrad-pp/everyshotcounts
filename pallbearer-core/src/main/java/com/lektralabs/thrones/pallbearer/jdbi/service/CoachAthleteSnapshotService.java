@@ -76,8 +76,17 @@ public class CoachAthleteSnapshotService {
         this.snapshotDao = jdbiProvider.getJdbi().onDemand(CoachAthleteSnapshotDao.class);
     }
 
+    /**
+     * Headline make/attempt totals for the athlete, scoped to their currently-active
+     * difficulty (drill group) — resolved the SAME way as the shooting zones and
+     * skill breakdown ({@link #resolveActiveDifficultyGroupId(UUID)}) so the headline
+     * spans exactly the tier those numbers cover. When no drill group can be resolved
+     * the (null) id is passed through; the query then matches no rows and returns a
+     * zeroed stats row rather than mixing every tier together.
+     */
     public AthleteSnapshotStatsRow getAthleteStats(UUID athleteId) {
-        return snapshotDao.getAthleteStats(athleteId);
+        UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
+        return snapshotDao.getAthleteStats(athleteId, difficultyGroupId);
     }
 
     public List<SkillBreakdownRow> getSkillBreakdown(UUID athleteId) {

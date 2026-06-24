@@ -1,6 +1,21 @@
 group CoachAthleteSnapshotDao;
 
-getAthleteStats(athleteId) ::= <<
+getAthleteStats(athleteId, difficultyGroupId) ::= <<
+<! Headline make/attempt totals for one athlete, scoped to the active difficulty
+   (drill group) — the SAME scoping the shooting zones and skill breakdown use, so
+   the headline spans the tier the athlete is currently on rather than mixing every
+   tier together. (Previously this query had no drill_group_id filter; the bug was
+   invisible only for athletes whose data lives entirely in one tier.)
+
+   Totals/best/worst are summed per ROUND from t_drill_attempt_history (one row per
+   round), not from t_drill (whose makes_reported/attempts_reported are overwritten
+   to the latest round on every submission). The effective_rounds CTE emits one row
+   per round via a LEFT JOIN, falling back to the t_drill summary row for any drill
+   with no history (defence-in-depth; current prod has none). bestSessionMakes /
+   worstSessionMisses are per-round MAX, matching the "best/worst session" intent
+   rather than the overwritten latest value; sessionCount counts rounds with shots
+   so it stays consistent with that per-round unit. streaks and roundsToPass keep
+   their existing per-t_drill "did the latest attempt pass" semantics, unchanged. !>
 WITH streaks AS MATERIALIZED (
     SELECT
         COALESCE(MAX(dah.hot_streak), 0)  AS best_make_streak,
@@ -30,20 +45,29 @@ first_pass AS (
 rounds AS MATERIALIZED (
     SELECT COALESCE(ROUND(AVG(sessions_to_pass))::INTEGER, 0) AS rounds_to_pass
     FROM first_pass
+),
+effective_rounds AS (
+    SELECT
+        COALESCE(h.makes_reported,    d.makes_reported)    AS makes,
+        COALESCE(h.attempts_reported, d.attempts_reported) AS attempts
+    FROM t_drill d
+    JOIN t_drill_item di ON di.id = d.drill_item_id
+    LEFT JOIN t_drill_attempt_history h ON h.drill_id = d.id
+    WHERE d.user_id = :athleteId
+      AND di.drill_group_id = :difficultyGroupId
 )
 SELECT
-    COALESCE(SUM(d.makes_reported), 0)                                      AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)                                   AS "totalAttempts",
-    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                  AS "sessionCount",
-    COALESCE(MAX(d.makes_reported), 0)                                      AS "bestSessionMakes",
-    COALESCE(MAX(GREATEST(d.attempts_reported - d.makes_reported, 0)), 0)   AS "worstSessionMisses",
+    COALESCE(SUM(er.makes), 0)                                              AS "totalMakes",
+    COALESCE(SUM(er.attempts), 0)                                           AS "totalAttempts",
+    COUNT(CASE WHEN er.attempts > 0 THEN 1 END)                            AS "sessionCount",
+    COALESCE(MAX(er.makes), 0)                                              AS "bestSessionMakes",
+    COALESCE(MAX(GREATEST(er.attempts - er.makes, 0)), 0)                   AS "worstSessionMisses",
     COALESCE(MAX(s.best_make_streak), 0)                                    AS "bestMakeStreak",
     COALESCE(MAX(s.worst_miss_streak), 0)                                   AS "worstMissStreak",
     COALESCE(MAX(r.rounds_to_pass), 0)                                      AS "roundsToPass"
-FROM t_drill d
+FROM effective_rounds er
 CROSS JOIN streaks s
 CROSS JOIN rounds r
-WHERE d.user_id = :athleteId
 >>
 
 getSkillBreakdown(athleteId) ::= <<
@@ -167,7 +191,17 @@ getShootingZonesByDifficulty(athleteId, difficultyGroupId) ::= <<
    that map to the same zone (3PT + DEPTH_SHOOTING) is still counted once per
    zone — no within-zone double-count. Drill items with no zone tag are excluded.
    Only zones with data are returned; three-zone padding and makePercent are
-   applied in the service/response layer. !>
+   applied in the service/response layer.
+
+   Round-level totals: shot counts are summed from t_drill_attempt_history (one
+   row per round), NOT from t_drill (whose makes_reported/attempts_reported are
+   OVERWRITTEN to the most recent round on every submission). Summing t_drill
+   collapsed every drill to a single round (e.g. Jasen / Elite / 3-Point read
+   43/60 — the last round of each drill — instead of 107/220 across all rounds).
+   The LEFT JOIN + COALESCE falls back to the t_drill summary row only for drills
+   that have no history rows (defence-in-depth for any pre-history drill; current
+   prod has none), so such a drill still contributes its single value instead of
+   silently zeroing. !>
 WITH zone_map (db_code, zone_code) AS (
     VALUES
         ('3PT',                'THREE_POINT'),
@@ -182,24 +216,32 @@ item_zone AS (
     JOIN zone_map zm ON zm.db_code = t.code
 )
 SELECT
-    iz.zone_code                                      AS "zoneCode",
-    COALESCE(SUM(d.makes_reported), 0)::INTEGER       AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)::INTEGER    AS "totalAttempts"
+    iz.zone_code                                                            AS "zoneCode",
+    COALESCE(SUM(COALESCE(h.makes_reported, d.makes_reported)), 0)::INTEGER    AS "totalMakes",
+    COALESCE(SUM(COALESCE(h.attempts_reported, d.attempts_reported)), 0)::INTEGER AS "totalAttempts"
 FROM t_drill d
 JOIN t_drill_item di ON di.id = d.drill_item_id
 JOIN item_zone iz    ON iz.drill_item_id = d.drill_item_id
+LEFT JOIN t_drill_attempt_history h ON h.drill_id = d.id
 WHERE d.user_id = :athleteId
   AND di.drill_group_id = :difficultyGroupId
 GROUP BY iz.zone_code
 >>
 
 getDrillStats(athleteId, limit, offset) ::= <<
+<! Per-drill totals sum makes/attempts per ROUND from t_drill_attempt_history
+   (one row per round), not from t_drill (overwritten to the latest round). Because
+   dah is already LEFT JOINed for streaks/timing, every t_drill row fans out to its
+   rounds, so the old SUM(d.makes_reported) actually MULTIPLIED the latest round by
+   the round count; COALESCE(dah.*, d.*) sums the real per-round values and falls
+   back to the t_drill summary only for drills with no history. sessions counts
+   rounds with shots; streaks/timing already come from dah and are unchanged. !>
 SELECT
     di.id                                                                        AS "drillItemId",
     di.name                                                                      AS "drillName",
-    COALESCE(SUM(d.makes_reported), 0)                                           AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)                                        AS "totalAttempts",
-    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                       AS "sessions",
+    COALESCE(SUM(COALESCE(dah.makes_reported, d.makes_reported)), 0)              AS "totalMakes",
+    COALESCE(SUM(COALESCE(dah.attempts_reported, d.attempts_reported)), 0)        AS "totalAttempts",
+    COUNT(CASE WHEN COALESCE(dah.attempts_reported, d.attempts_reported) > 0 THEN 1 END) AS "sessions",
     COALESCE(MAX(dah.hot_streak), 0)                                             AS "bestMakeStreak",
     COALESCE(MAX(dah.cold_streak), 0)                                            AS "longestMissStreak",
     AVG(
@@ -213,17 +255,21 @@ LEFT JOIN t_drill_attempt_history dah ON dah.drill_id = d.id
 WHERE d.user_id = :athleteId
 GROUP BY di.id, di.name
 ORDER BY COUNT(d.id) DESC,
-         (COALESCE(SUM(d.makes_reported), 0) * 1.0 / NULLIF(SUM(d.attempts_reported), 0)) DESC NULLS LAST
+         (COALESCE(SUM(COALESCE(dah.makes_reported, d.makes_reported)), 0) * 1.0
+              / NULLIF(SUM(COALESCE(dah.attempts_reported, d.attempts_reported)), 0)) DESC NULLS LAST
 LIMIT :limit OFFSET :offset
 >>
 
 getDrillStatsWithTagFilter(athleteId, tagCodes, limit, offset) ::= <<
+<! Tag-filtered variant of getDrillStats: same per-round summation from
+   t_drill_attempt_history (see getDrillStats note); only the drill-item tag
+   filter differs. !>
 SELECT
     di.id                                                                        AS "drillItemId",
     di.name                                                                      AS "drillName",
-    COALESCE(SUM(d.makes_reported), 0)                                           AS "totalMakes",
-    COALESCE(SUM(d.attempts_reported), 0)                                        AS "totalAttempts",
-    COUNT(CASE WHEN d.attempts_reported > 0 THEN d.id END)                       AS "sessions",
+    COALESCE(SUM(COALESCE(dah.makes_reported, d.makes_reported)), 0)              AS "totalMakes",
+    COALESCE(SUM(COALESCE(dah.attempts_reported, d.attempts_reported)), 0)        AS "totalAttempts",
+    COUNT(CASE WHEN COALESCE(dah.attempts_reported, d.attempts_reported) > 0 THEN 1 END) AS "sessions",
     COALESCE(MAX(dah.hot_streak), 0)                                             AS "bestMakeStreak",
     COALESCE(MAX(dah.cold_streak), 0)                                            AS "longestMissStreak",
     AVG(
@@ -243,7 +289,8 @@ WHERE d.user_id = :athleteId
   )
 GROUP BY di.id, di.name
 ORDER BY COUNT(d.id) DESC,
-         (COALESCE(SUM(d.makes_reported), 0) * 1.0 / NULLIF(SUM(d.attempts_reported), 0)) DESC NULLS LAST
+         (COALESCE(SUM(COALESCE(dah.makes_reported, d.makes_reported)), 0) * 1.0
+              / NULLIF(SUM(COALESCE(dah.attempts_reported, d.attempts_reported)), 0)) DESC NULLS LAST
 LIMIT :limit OFFSET :offset
 >>
 

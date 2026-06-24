@@ -19,7 +19,9 @@ public interface CoachAthleteSnapshotDao {
 
     @RegisterBeanMapper(AthleteSnapshotStatsRow.class)
     @SqlQuery("getAthleteStats")
-    AthleteSnapshotStatsRow getAthleteStats(@Bind("athleteId") UUID athleteId);
+    AthleteSnapshotStatsRow getAthleteStats(
+            @Bind("athleteId") UUID athleteId,
+            @Bind("difficultyGroupId") UUID difficultyGroupId);
 
     @RegisterBeanMapper(SkillBreakdownRow.class)
     @SqlQuery("getSkillBreakdown")
