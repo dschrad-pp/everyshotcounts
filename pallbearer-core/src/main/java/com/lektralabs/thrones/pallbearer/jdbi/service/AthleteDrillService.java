@@ -21,9 +21,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -463,11 +466,37 @@ public class AthleteDrillService {
                 athleteUserId, drillGroupId, athleteDrillDetails);
     }
 
+    /**
+     * Build the coach-facing drill detail for an athlete across ALL difficulty
+     * groups, combining same-named drills into a single entry.
+     * <p>
+     * A logical drill (e.g. "Free Throw Routine") exists as a separate
+     * {@code t_drill_item} in every difficulty group and at every level, all
+     * sharing the same name. The "My Drills" list ({@code /drills/completed})
+     * sums those variants together by name, so the detail must do the same or
+     * the per-round breakdown won't match the list number (the original
+     * symptom: list shows a total, tapping it opened a current-difficulty-only,
+     * often-empty screen).
+     * <p>
+     * This therefore:
+     * <ul>
+     *   <li>includes EVERY {@code COMPLETE} drill — the same inclusion rule the
+     *       list query uses — with no recency limit, so every list row has a
+     *       matching detail entry;</li>
+     *   <li>groups variants by {@code LOWER(BTRIM(name))}, the exact key the iOS
+     *       app merges the list on, producing exactly one entry per name;</li>
+     *   <li>unions every round across all variants into {@code attemptHistory}
+     *       and sums totals per ROUND from {@code t_drill_attempt_history} (with a
+     *       fall-back to the drill summary row for any drill with no history) so
+     *       the detail total equals the list number;</li>
+     *   <li>fills the single-valued metadata fields (drillGroup, levelIndex,
+     *       passingScore, mediaId, thumbnail, drillItemId) from the variant of the
+     *       most recent attempt — the detail screen does not display these, it
+     *       only uses name, the drillDetail totals and attemptHistory.</li>
+     * </ul>
+     */
     public List<AthleteDrillDetail> findLatestAttemptedDrillsForAthleteUnderCoach(UUID coachId, UUID athleteUserId) {
-        List<AthleteDrillDetail> athleteDrillDetails = new ArrayList<>();
-
         List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
-        // logger.info(String.format("the lsit is : %s", assignedAthletes));
         boolean isAssigned = assignedAthletes.stream()
                 .anyMatch(a -> a.getUserId().equals(athleteUserId));
 
@@ -476,110 +505,154 @@ public class AthleteDrillService {
             return Collections.emptyList();
         }
 
-        List<DrillRow> recentDrills = drillService.findRecentDrillsForUser(athleteUserId, 50); // Fetch more to filter
-                                                                                               // below
+        // Every drill the athlete has ever submitted, across all difficulty groups.
+        List<DrillRow> allDrills = drillService.findAllDrillsForUser(athleteUserId);
 
-        List<AthleteDrillDetail> processedDrillDetails = new ArrayList<>();
-        for (DrillRow drillRow : recentDrills) {
+        // Group COMPLETE drills by normalized name. LinkedHashMap preserves first-seen
+        // order; the final list is re-sorted by most-recent attempt below.
+        Map<String, List<DrillRow>> drillsByNormalizedName = new LinkedHashMap<>();
+        Map<UUID, DrillItemRow> drillItemCache = new HashMap<>();
 
-            Optional<DrillItemRow> drillItemRow = drillItemService.findById(drillRow.getDrillItemId());
-
-            if (drillItemRow.isEmpty()) {
-                logger.warn("Could not find DrillItemRow for drillId: {}", drillRow.getDrillItemId());
+        for (DrillRow drillRow : allDrills) {
+            if (!DrillStatusConstants.COMPLETE.equals(drillRow.getDrillStatus())) {
                 continue;
             }
 
-            DrillItemRow drillItem = drillItemRow.get();
-
-            boolean isLevelTest = Boolean.TRUE.equals(drillItem.getLevelTest());
-            String drillStatus = drillRow.getDrillStatus();
-
-            if ((isLevelTest && DrillStatusConstants.NOT_ATTEMPTED.equals(drillStatus))
-                    || (!isLevelTest && !DrillStatusConstants.COMPLETE.equals(drillStatus))) {
-                continue; // Skip drills not matching your conditions
-            }
-
-            if (drillRow.getMediaId().isEmpty()) {
-                logger.debug("Skipping drillId {} due to missing mediaId or thumbnail", drillRow.getId());
+            DrillItemRow drillItem = drillItemCache.computeIfAbsent(drillRow.getDrillItemId(),
+                    id -> drillItemService.findById(id).orElse(null));
+            if (drillItem == null || drillItem.getName().isEmpty()) {
+                logger.warn("Could not resolve drill item / name for drillId: {}", drillRow.getId());
                 continue;
             }
 
-            DrillDetail drillDetail = DrillDetail.builder()
-                    .id(drillRow.getId())
-                    .drillItemId(drillRow.getDrillItemId())
-                    .userId(drillRow.getUserId())
-                    .mediaId(drillRow.getMediaId())
-                    .drillStatus(drillRow.getDrillStatus())
-                    .creationDate(drillRow.getCreationDate())
-                    .modificationDate(drillRow.getModificationDate())
-                    .version(drillRow.getVersion())
-                    .attemptsDetected(drillRow.getAttemptsDetected())
-                    .attemptsReported(drillRow.getAttemptsReported())
-                    .makesDetected(drillRow.getMakesDetected())
-                    .makesReported(drillRow.getMakesReported())
-                    .build();
-
-            List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
-                    .findByDrillIdAndUserId(drillDetail.getId(), drillDetail.getUserId());
-
-            // Return the full per-attempt history (already ordered recorded_at DESC) so
-            // the coach can view each attempt's own video — including failed attempts —
-            // rather than only the most recent attempt collapsed into a single row.
-            drillDetail.setAttemptHistory(
-                    historyRows.stream()
-                            .map(r -> DrillAttemptHistoryResponse.from(r, serverBaseUrl))
-                            .collect(Collectors.toList()));
-
-            if (drillItemRow.isPresent()) {
-                String mediaThumbnailUrl = null;
-                if (drillDetail.getMediaId().isPresent()) {
-                    UUID mediaId = drillDetail.getMediaId().get();
-
-                    // Check if thumbnail exists and generate if not
-                    // This ensures thumbnail is created from video at gallery/{mediaId}/source.mp4
-                    mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
-
-                    // Fallback to old method if new method returns null
-                    if (mediaThumbnailUrl == null) {
-                        logger.warn("Could not get thumbnail URL for mediaId: {}, drillId: {}, using fallback",
-                                mediaId, drillRow.getId());
-                        mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
-                    }
-                }
-
-                DrillGroupRow drillGroupRow = drillItemRow.get().getDrillGroupId() != null
-                        ? drillGroupService.findById(drillItemRow.get().getDrillGroupId()).orElse(null)
-                        : null;
-
-                AthleteDrillDetail athleteDrillDetail = AthleteDrillDetail.builder()
-                        .drillItemId(drillItemRow.get().getId())
-                        .teamId(drillItemRow.get().getTeamId())
-                        .name(drillItemRow.get().getName())
-                        .description(drillItemRow.get().getDescription())
-                        .mediaId(drillItemRow.get().getMediaId())
-                        .levelIndex(drillItemRow.get().getLevelIndex())
-                        .levelTest(drillItemRow.get().getLevelTest())
-                        .drillItemOrder(drillItemRow.get().getDrillItemOrder())
-                        .passingScore(drillItemRow.get().getPassingScore())
-                        .shotsMax(drillItemRow.get().getShotsMax())
-                        .visibilityCode(drillItemRow.get().getVisibilityCode())
-                        .allowRetryCode(drillItemRow.get().getAllowRetryCode())
-                        .retryMax(drillItemRow.get().getRetryMax())
-                        .timeLimitMs(drillItemRow.get().getTimeLimitMs())
-                        .orderIndex(drillItemRow.get().getOrderIndex() != null ? drillItemRow.get().getOrderIndex() : -1)
-                        .drillGroup(drillGroupRow)
-                        .drillDetail(Optional.of(drillDetail))
-                        .mediaThumbnail(mediaThumbnailUrl)
-                        .isLocked(false)
-                        .build();
-
-                processedDrillDetails.add(athleteDrillDetail);
-            } else {
-                logger.warn("Could not find DrillItemRow for drillId: {}", drillDetail.getDrillItemId());
-            }
+            // Mirror the iOS app's merge key exactly: lowercase + trim leading/trailing
+            // whitespace, no internal-whitespace collapse, no punctuation normalization
+            // (equivalent to Postgres LOWER(BTRIM(name))).
+            String normalizedName = drillItem.getName().get().toLowerCase(java.util.Locale.ROOT).strip();
+            drillsByNormalizedName.computeIfAbsent(normalizedName, k -> new ArrayList<>()).add(drillRow);
         }
 
-        return processedDrillDetails.stream()
+        List<AthleteDrillDetail> combinedDetails = new ArrayList<>();
+
+        for (List<DrillRow> variants : drillsByNormalizedName.values()) {
+            List<DrillAttemptHistoryResponse> unionHistory = new ArrayList<>();
+            int sumAttemptsDetected = 0;
+            int sumAttemptsReported = 0;
+            int sumMakesDetected = 0;
+            int sumMakesReported = 0;
+
+            DrillRow representative = null;
+            Timestamp latestRecordedAt = null;
+
+            for (DrillRow drillRow : variants) {
+                List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
+                        .findByDrillIdAndUserId(drillRow.getId(), drillRow.getUserId());
+
+                if (historyRows.isEmpty()) {
+                    // Defence-in-depth: a COMPLETE drill with no per-round history.
+                    // Fall back to the drill summary row so its totals still count.
+                    sumAttemptsDetected += nullSafe(drillRow.getAttemptsDetected());
+                    sumAttemptsReported += nullSafe(drillRow.getAttemptsReported());
+                    sumMakesDetected += nullSafe(drillRow.getMakesDetected());
+                    sumMakesReported += nullSafe(drillRow.getMakesReported());
+                    if (representative == null) {
+                        representative = drillRow;
+                    }
+                    continue;
+                }
+
+                for (DrillAttemptHistoryRow h : historyRows) {
+                    sumAttemptsDetected += nullSafe(h.getAttemptsDetected());
+                    sumAttemptsReported += nullSafe(h.getAttemptsReported());
+                    sumMakesDetected += nullSafe(h.getMakesDetected());
+                    sumMakesReported += nullSafe(h.getMakesReported());
+                    unionHistory.add(DrillAttemptHistoryResponse.from(h, serverBaseUrl));
+
+                    if (h.getRecordedAt() != null
+                            && (latestRecordedAt == null || h.getRecordedAt().after(latestRecordedAt))) {
+                        latestRecordedAt = h.getRecordedAt();
+                        representative = drillRow;
+                    }
+                }
+            }
+
+            if (representative == null) {
+                continue;
+            }
+
+            // Newest round first, matching the previous per-drill ordering.
+            unionHistory.sort((a, b) -> {
+                Timestamp ra = a.getRecordedAt();
+                Timestamp rb = b.getRecordedAt();
+                if (ra == null && rb == null) return 0;
+                if (ra == null) return 1;
+                if (rb == null) return -1;
+                return rb.compareTo(ra);
+            });
+
+            DrillItemRow repItem = drillItemCache.get(representative.getDrillItemId());
+
+            DrillDetail drillDetail = DrillDetail.builder()
+                    .id(representative.getId())
+                    .drillItemId(representative.getDrillItemId())
+                    .userId(athleteUserId)
+                    .mediaId(representative.getMediaId())
+                    .drillStatus(DrillStatusConstants.COMPLETE)
+                    .creationDate(representative.getCreationDate())
+                    .modificationDate(representative.getModificationDate())
+                    .version(representative.getVersion())
+                    .attemptsDetected(sumAttemptsDetected)
+                    .attemptsReported(sumAttemptsReported)
+                    .makesDetected(sumMakesDetected)
+                    .makesReported(sumMakesReported)
+                    .attemptHistory(unionHistory)
+                    .build();
+
+            String mediaThumbnailUrl = null;
+            if (representative.getMediaId().isPresent()) {
+                UUID mediaId = representative.getMediaId().get();
+                mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
+                if (mediaThumbnailUrl == null) {
+                    mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
+                }
+            }
+
+            DrillGroupRow drillGroupRow = repItem != null && repItem.getDrillGroupId() != null
+                    ? drillGroupService.findById(repItem.getDrillGroupId()).orElse(null)
+                    : null;
+
+            AthleteDrillDetail.AthleteDrillDetailBuilder builder = AthleteDrillDetail.builder()
+                    .drillDetail(Optional.of(drillDetail))
+                    .drillGroup(drillGroupRow)
+                    .mediaThumbnail(mediaThumbnailUrl)
+                    .isLocked(false);
+
+            if (repItem != null) {
+                builder.drillItemId(repItem.getId())
+                        .teamId(repItem.getTeamId())
+                        .name(repItem.getName())
+                        .description(repItem.getDescription())
+                        .mediaId(repItem.getMediaId())
+                        .levelIndex(repItem.getLevelIndex())
+                        .levelTest(repItem.getLevelTest())
+                        .drillItemOrder(repItem.getDrillItemOrder())
+                        .passingScore(repItem.getPassingScore())
+                        .shotsMax(repItem.getShotsMax())
+                        .visibilityCode(repItem.getVisibilityCode())
+                        .allowRetryCode(repItem.getAllowRetryCode())
+                        .retryMax(repItem.getRetryMax())
+                        .timeLimitMs(repItem.getTimeLimitMs())
+                        .orderIndex(repItem.getOrderIndex() != null ? repItem.getOrderIndex() : -1);
+            } else {
+                builder.drillItemId(representative.getDrillItemId());
+            }
+
+            combinedDetails.add(builder.build());
+        }
+
+        // Most-recently-attempted drill first. No limit: every drill in the list
+        // must have a matching detail entry.
+        return combinedDetails.stream()
                 .sorted((d1, d2) -> {
                     Optional<DrillAttemptHistoryResponse> h1 = d1.getDrillDetail()
                             .flatMap(DrillDetail::getMostRecentAttempt);
@@ -588,8 +661,11 @@ public class AthleteDrillService {
                     return h2.flatMap(at2 -> h1.map(at1 -> at2.getRecordedAt().compareTo(at1.getRecordedAt())))
                             .orElse(0);
                 })
-                .limit(10)
                 .toList();
+    }
+
+    private static int nullSafe(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private String generateMediaThumbnailUrl(UUID mediaId) {

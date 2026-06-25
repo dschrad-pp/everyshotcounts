@@ -433,9 +433,9 @@ getCompletedByAthleteWithFilters() ::= <<
        , m.status_code               AS "dr_mediaStatus"
        , dr.drill_status             AS "dr_drillStatus"
        , dr.attempts_detected        AS "dr_attemptsDetected"
-       , dr.attempts_reported        AS "dr_attemptsReported"
+       , COALESCE(dah.sum_attempts_reported, dr.attempts_reported)  AS "dr_attemptsReported"
        , dr.makes_detected           AS "dr_makesDetected"
-       , dr.makes_reported           AS "dr_makesReported"
+       , COALESCE(dah.sum_makes_reported, dr.makes_reported)        AS "dr_makesReported"
        , dr.creation_date            AS "dr_creationDate"
        , dr.modification_date        AS "dr_modificationDate"
        , dr.created_by_id            AS "dr_createdById"
@@ -478,6 +478,8 @@ getCompletedByAthleteWithFilters() ::= <<
    JOIN t_contact mc ON mc.id = mu.contact_id
    LEFT JOIN (
        SELECT drill_id
+            , SUM(makes_reported)                                               AS sum_makes_reported
+            , SUM(attempts_reported)                                            AS sum_attempts_reported
             , MAX(hot_streak)                                                   AS best_make_streak
             , MAX(cold_streak)                                                  AS longest_miss_streak
             , AVG(CASE WHEN started_at IS NOT NULL AND recorded_at IS NOT NULL
@@ -526,9 +528,9 @@ getCompletedByAthleteWithTagFilter() ::= <<
        , m.status_code               AS "dr_mediaStatus"
        , dr.drill_status             AS "dr_drillStatus"
        , dr.attempts_detected        AS "dr_attemptsDetected"
-       , dr.attempts_reported        AS "dr_attemptsReported"
+       , COALESCE(dah.sum_attempts_reported, dr.attempts_reported)  AS "dr_attemptsReported"
        , dr.makes_detected           AS "dr_makesDetected"
-       , dr.makes_reported           AS "dr_makesReported"
+       , COALESCE(dah.sum_makes_reported, dr.makes_reported)        AS "dr_makesReported"
        , dr.creation_date            AS "dr_creationDate"
        , dr.modification_date        AS "dr_modificationDate"
        , dr.created_by_id            AS "dr_createdById"
@@ -571,6 +573,8 @@ getCompletedByAthleteWithTagFilter() ::= <<
    JOIN t_contact mc ON mc.id = mu.contact_id
    LEFT JOIN (
        SELECT drill_id
+            , SUM(makes_reported)                                               AS sum_makes_reported
+            , SUM(attempts_reported)                                            AS sum_attempts_reported
             , MAX(hot_streak)                                                   AS best_make_streak
             , MAX(cold_streak)                                                  AS longest_miss_streak
             , AVG(CASE WHEN started_at IS NOT NULL AND recorded_at IS NOT NULL
