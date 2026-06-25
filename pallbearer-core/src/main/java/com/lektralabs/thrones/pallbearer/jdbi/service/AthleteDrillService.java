@@ -494,8 +494,26 @@ public class AthleteDrillService {
      *       most recent attempt — the detail screen does not display these, it
      *       only uses name, the drillDetail totals and attemptHistory.</li>
      * </ul>
+     * <p>
+     * The {@code scope} parameter controls the grouping granularity, because the
+     * same endpoint backs two contradictory contracts:
+     * <ul>
+     *   <li>{@code "name"} (default) — group by {@code LOWER(BTRIM(name))}, the
+     *       all-difficulty union the "My Drills" round-history screen requires;</li>
+     *   <li>{@code "item"} — group by {@code drillItemId}, so the notification
+     *       drill-detail and the athlete "Video" tab each collapse to the single
+     *       drill item the athlete actually did (no cross-difficulty union).</li>
+     * </ul>
+     * Only the grouping key differs; the round-union, totals summation,
+     * representative selection and sort are identical for both scopes.
      */
     public List<AthleteDrillDetail> findLatestAttemptedDrillsForAthleteUnderCoach(UUID coachId, UUID athleteUserId) {
+        return findLatestAttemptedDrillsForAthleteUnderCoach(coachId, athleteUserId, "name");
+    }
+
+    public List<AthleteDrillDetail> findLatestAttemptedDrillsForAthleteUnderCoach(UUID coachId, UUID athleteUserId,
+            String scope) {
+        boolean groupByItem = "item".equalsIgnoreCase(scope);
         List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
         boolean isAssigned = assignedAthletes.stream()
                 .anyMatch(a -> a.getUserId().equals(athleteUserId));
@@ -508,9 +526,11 @@ public class AthleteDrillService {
         // Every drill the athlete has ever submitted, across all difficulty groups.
         List<DrillRow> allDrills = drillService.findAllDrillsForUser(athleteUserId);
 
-        // Group COMPLETE drills by normalized name. LinkedHashMap preserves first-seen
+        // Group COMPLETE drills by the scope key. LinkedHashMap preserves first-seen
         // order; the final list is re-sorted by most-recent attempt below.
-        Map<String, List<DrillRow>> drillsByNormalizedName = new LinkedHashMap<>();
+        // scope=name -> LOWER(BTRIM(name)) (cross-difficulty union for My Drills)
+        // scope=item -> drillItemId (single drill item for notifications / Video tab)
+        Map<String, List<DrillRow>> drillsByGroupKey = new LinkedHashMap<>();
         Map<UUID, DrillItemRow> drillItemCache = new HashMap<>();
 
         for (DrillRow drillRow : allDrills) {
@@ -525,16 +545,22 @@ public class AthleteDrillService {
                 continue;
             }
 
-            // Mirror the iOS app's merge key exactly: lowercase + trim leading/trailing
-            // whitespace, no internal-whitespace collapse, no punctuation normalization
-            // (equivalent to Postgres LOWER(BTRIM(name))).
-            String normalizedName = drillItem.getName().get().toLowerCase(java.util.Locale.ROOT).strip();
-            drillsByNormalizedName.computeIfAbsent(normalizedName, k -> new ArrayList<>()).add(drillRow);
+            String groupKey;
+            if (groupByItem) {
+                // One entry per drill item: no cross-difficulty union.
+                groupKey = drillRow.getDrillItemId().toString();
+            } else {
+                // Mirror the iOS app's merge key exactly: lowercase + trim leading/trailing
+                // whitespace, no internal-whitespace collapse, no punctuation normalization
+                // (equivalent to Postgres LOWER(BTRIM(name))).
+                groupKey = drillItem.getName().get().toLowerCase(java.util.Locale.ROOT).strip();
+            }
+            drillsByGroupKey.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(drillRow);
         }
 
         List<AthleteDrillDetail> combinedDetails = new ArrayList<>();
 
-        for (List<DrillRow> variants : drillsByNormalizedName.values()) {
+        for (List<DrillRow> variants : drillsByGroupKey.values()) {
             List<DrillAttemptHistoryResponse> unionHistory = new ArrayList<>();
             int sumAttemptsDetected = 0;
             int sumAttemptsReported = 0;
@@ -566,7 +592,11 @@ public class AthleteDrillService {
                     sumAttemptsReported += nullSafe(h.getAttemptsReported());
                     sumMakesDetected += nullSafe(h.getMakesDetected());
                     sumMakesReported += nullSafe(h.getMakesReported());
-                    unionHistory.add(DrillAttemptHistoryResponse.from(h, serverBaseUrl));
+                    DrillAttemptHistoryResponse historyResponse = DrillAttemptHistoryResponse.from(h, serverBaseUrl);
+                    // Stamp the owning drill item so the client can isolate one item's
+                    // rounds; the history row itself only carries drill_id.
+                    historyResponse.setDrillItemId(drillRow.getDrillItemId());
+                    unionHistory.add(historyResponse);
 
                     if (h.getRecordedAt() != null
                             && (latestRecordedAt == null || h.getRecordedAt().after(latestRecordedAt))) {

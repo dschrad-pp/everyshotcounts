@@ -97,11 +97,12 @@ public class CoachResource {
     @RolesAllowed({ "ADMIN", "COACH" })
     @Produces(MediaType.APPLICATION_JSON)
     public Response getDrillDetailsOfAthleteAssignedToCoach(@PathParam("coachId") UUID coachId,
-            @PathParam("athleteId") UUID athleteId) {
-        // logger.infof("Fetching drill details for athletes assigned to coach ID: %s",
-        // athleteId);
+            @PathParam("athleteId") UUID athleteId,
+            @QueryParam("scope") @DefaultValue("name") String scope) {
+        // scope=name (default) -> cross-difficulty union by name (My Drills);
+        // scope=item -> one entry per drill item (notification detail / Video tab).
         List<AthleteDrillDetail> athleteDrillDetails = athleteDrillService
-                .findLatestAttemptedDrillsForAthleteUnderCoach(coachId, athleteId);
+                .findLatestAttemptedDrillsForAthleteUnderCoach(coachId, athleteId, scope);
         // logger.info(String.format("the number of drills returned : %s",
         // athleteDrillDetails.size()));
         return Response.ok(

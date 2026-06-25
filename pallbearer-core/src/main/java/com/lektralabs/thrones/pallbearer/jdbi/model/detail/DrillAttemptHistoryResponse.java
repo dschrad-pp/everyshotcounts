@@ -19,6 +19,16 @@ public class DrillAttemptHistoryResponse {
     private UUID id;
     private UUID userId;
     private UUID drillId;
+
+    /**
+     * The drill item (template) this round belongs to. The iOS client keys drill
+     * cards off drillItemId, so it needs this to isolate a single item's rounds
+     * from a name-unioned payload. Set by the caller, since the underlying
+     * t_drill_attempt_history row only carries drill_id.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID drillItemId;
+
     private Integer attemptsDetected;
     private Integer attemptsReported;
     private Integer makesDetected;
