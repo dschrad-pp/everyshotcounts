@@ -88,18 +88,23 @@ public class CoachNotificationService {
                 passingScore = drillItemOpt.get().getPassingScore();
             }
 
-            if (passingScore != null && makesDetected != null && makesDetected < passingScore) {
-                logger.debugf("Athlete %s did not pass drill %s (makes=%d, required=%d) — skipping coach notification",
-                        athleteId, drillItemId, makesDetected, passingScore);
-                return;
-            }
-
             int makesDetectedValue = makesDetected != null ? makesDetected : 0;
             int attemptsDetectedValue = attemptsDetected != null ? attemptsDetected : 0;
             // A null reported value means the athlete did not override the AI-detected
             // score, so it falls back to the detected value rather than 0.
             int makesReportedValue = makesReported != null ? makesReported : makesDetectedValue;
             int attemptsReportedValue = attemptsReported != null ? attemptsReported : attemptsDetectedValue;
+
+            // Gate on the reported makes (the AI-check value the athlete confirmed/overrode),
+            // not the raw AI-detected count. The AI may under-count; the reported score is what
+            // the drill is marked complete against, so a drill that passes on reported makes
+            // should notify the coach even if detected makes fell below the passing score.
+            if (passingScore != null && makesReportedValue < passingScore) {
+                logger.debugf("Athlete %s did not pass drill %s (reportedMakes=%d, required=%d) — skipping coach notification",
+                        athleteId, drillItemId, makesReportedValue, passingScore);
+                return;
+            }
+
             boolean scoreAdjusted = isScoreAdjusted(makesDetectedValue, attemptsDetectedValue,
                     makesReported, attemptsReported);
 
