@@ -19,6 +19,7 @@ public class CoachNotificationRow implements Serializable {
     private UUID athleteId;
     private UUID drillId;
     private UUID drillItemId;
+    private String attemptLocalId;
     private String drillName;
     private String athleteFirstName;
     private String athleteLastName;

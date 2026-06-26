@@ -135,6 +135,7 @@ public class DrillResource {
 
             athleteMetricManager.updateDrillCompletionMetrics(athleteUserId);
             coachNotificationService.createNotificationForDrillCompletion(athleteUserId, drillId, drillPartial.getDrillItemId(),
+                    drillPartial.getAttemptLocalId(),
                     drillPartial.getMakesDetected(), drillPartial.getAttemptsDetected(),
                     drillPartial.getMakesReported(), drillPartial.getAttemptsReported());
 
@@ -244,6 +245,7 @@ public class DrillResource {
                             logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s, UserId=%s",
                                     i, actualDrillId, drillItemId, userId);
                             coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId,
+                                    drillPartial.getAttemptLocalId(),
                                     drillPartial.getMakesDetected(), drillPartial.getAttemptsDetected(),
                                     drillPartial.getMakesReported(), drillPartial.getAttemptsReported());
                         } else {
@@ -487,6 +489,7 @@ public class DrillResource {
                             logger.info("✅ Drill completed successfully at index %d. DrillId=%s, DrillItemId=%s",
                                     i, actualDrillId, drillItemId);
                             coachNotificationService.createNotificationForDrillCompletion(userId, actualDrillId, drillItemId,
+                                    drillPartial.getAttemptLocalId(),
                                     drillPartial.getMakesDetected(), drillPartial.getAttemptsDetected(),
                                     drillPartial.getMakesReported(), drillPartial.getAttemptsReported());
                         } else {

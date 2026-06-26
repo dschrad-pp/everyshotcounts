@@ -9,6 +9,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.stringtemplate4.UseStringTemplateSqlLocator;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @UseStringTemplateSqlLocator
@@ -16,6 +17,10 @@ public interface CoachNotificationDao {
 
     @SqlUpdate("insert")
     void insert(@BindBean CoachNotificationRow row);
+
+    @RegisterBeanMapper(CoachNotificationRow.class)
+    @SqlQuery("findById")
+    Optional<CoachNotificationRow> findById(@Bind("id") UUID id);
 
     @RegisterBeanMapper(CoachNotificationRow.class)
     @SqlQuery("findByCoachIdPaginated")

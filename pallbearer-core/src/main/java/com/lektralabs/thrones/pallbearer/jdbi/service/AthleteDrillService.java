@@ -514,6 +514,7 @@ public class AthleteDrillService {
     public List<AthleteDrillDetail> findLatestAttemptedDrillsForAthleteUnderCoach(UUID coachId, UUID athleteUserId,
             String scope) {
         boolean groupByItem = "item".equalsIgnoreCase(scope);
+        boolean roundLevel = "round".equalsIgnoreCase(scope);
         List<AthleteDetail> assignedAthletes = coachService.findAllAthletesAssignedToCoach(coachId);
         boolean isAssigned = assignedAthletes.stream()
                 .anyMatch(a -> a.getUserId().equals(athleteUserId));
@@ -525,6 +526,12 @@ public class AthleteDrillService {
 
         // Every drill the athlete has ever submitted, across all difficulty groups.
         List<DrillRow> allDrills = drillService.findAllDrillsForUser(athleteUserId);
+
+        // scope=round: one entry per PASSING round (one round = one video). Used by the
+        // coach Video tab ("Previous 10 Drills"). No grouping/summation.
+        if (roundLevel) {
+            return buildPassingRoundDetails(allDrills);
+        }
 
         // Group COMPLETE drills by the scope key. LinkedHashMap preserves first-seen
         // order; the final list is re-sorted by most-recent attempt below.
@@ -587,16 +594,13 @@ public class AthleteDrillService {
                     continue;
                 }
 
+                DrillItemRow drillItemForRow = drillItemCache.get(drillRow.getDrillItemId());
                 for (DrillAttemptHistoryRow h : historyRows) {
                     sumAttemptsDetected += nullSafe(h.getAttemptsDetected());
                     sumAttemptsReported += nullSafe(h.getAttemptsReported());
                     sumMakesDetected += nullSafe(h.getMakesDetected());
                     sumMakesReported += nullSafe(h.getMakesReported());
-                    DrillAttemptHistoryResponse historyResponse = DrillAttemptHistoryResponse.from(h, serverBaseUrl);
-                    // Stamp the owning drill item so the client can isolate one item's
-                    // rounds; the history row itself only carries drill_id.
-                    historyResponse.setDrillItemId(drillRow.getDrillItemId());
-                    unionHistory.add(historyResponse);
+                    unionHistory.add(toHistoryResponse(h, drillRow, drillItemForRow));
 
                     if (h.getRecordedAt() != null
                             && (latestRecordedAt == null || h.getRecordedAt().after(latestRecordedAt))) {
@@ -638,46 +642,8 @@ public class AthleteDrillService {
                     .attemptHistory(unionHistory)
                     .build();
 
-            String mediaThumbnailUrl = null;
-            if (representative.getMediaId().isPresent()) {
-                UUID mediaId = representative.getMediaId().get();
-                mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
-                if (mediaThumbnailUrl == null) {
-                    mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
-                }
-            }
-
-            DrillGroupRow drillGroupRow = repItem != null && repItem.getDrillGroupId() != null
-                    ? drillGroupService.findById(repItem.getDrillGroupId()).orElse(null)
-                    : null;
-
-            AthleteDrillDetail.AthleteDrillDetailBuilder builder = AthleteDrillDetail.builder()
-                    .drillDetail(Optional.of(drillDetail))
-                    .drillGroup(drillGroupRow)
-                    .mediaThumbnail(mediaThumbnailUrl)
-                    .isLocked(false);
-
-            if (repItem != null) {
-                builder.drillItemId(repItem.getId())
-                        .teamId(repItem.getTeamId())
-                        .name(repItem.getName())
-                        .description(repItem.getDescription())
-                        .mediaId(repItem.getMediaId())
-                        .levelIndex(repItem.getLevelIndex())
-                        .levelTest(repItem.getLevelTest())
-                        .drillItemOrder(repItem.getDrillItemOrder())
-                        .passingScore(repItem.getPassingScore())
-                        .shotsMax(repItem.getShotsMax())
-                        .visibilityCode(repItem.getVisibilityCode())
-                        .allowRetryCode(repItem.getAllowRetryCode())
-                        .retryMax(repItem.getRetryMax())
-                        .timeLimitMs(repItem.getTimeLimitMs())
-                        .orderIndex(repItem.getOrderIndex() != null ? repItem.getOrderIndex() : -1);
-            } else {
-                builder.drillItemId(representative.getDrillItemId());
-            }
-
-            combinedDetails.add(builder.build());
+            combinedDetails.add(assembleDetail(representative, repItem, drillDetail,
+                    representative.getMediaId()));
         }
 
         // Most-recently-attempted drill first. No limit: every drill in the list
@@ -696,6 +662,211 @@ public class AthleteDrillService {
 
     private static int nullSafe(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    /**
+     * Build a {@link DrillAttemptHistoryResponse} for one round and stamp the
+     * fields the row itself does not carry: the owning {@code drillItemId}, the
+     * stable {@code attemptLocalId} / {@code attemptNumber} the client keys on, and
+     * the server-computed {@code passed} flag.
+     */
+    private DrillAttemptHistoryResponse toHistoryResponse(DrillAttemptHistoryRow h, DrillRow drillRow,
+            DrillItemRow drillItem) {
+        DrillAttemptHistoryResponse response = DrillAttemptHistoryResponse.from(h, serverBaseUrl);
+        response.setDrillItemId(drillRow.getDrillItemId());
+        response.setAttemptLocalId(h.getAttemptLocalId());
+        response.setAttemptNumber(h.getAttemptNumber());
+        response.setPassed(isRoundPassing(h, drillItem));
+        return response;
+    }
+
+    /**
+     * A round passes when its reported makes meet the drill item's passing score.
+     * Mirrors the coach-notification gate exactly: a null threshold counts as
+     * passing. {@code makesReported} on a history row is never null (it defaults to
+     * 0 at insert), so the reported value is authoritative.
+     */
+    private boolean isRoundPassing(DrillAttemptHistoryRow h, DrillItemRow drillItem) {
+        Integer passingScore = drillItem != null ? drillItem.getPassingScore() : null;
+        if (passingScore == null) {
+            return true;
+        }
+        return nullSafe(h.getMakesReported()) >= passingScore;
+    }
+
+    /**
+     * scope=round: one {@link AthleteDrillDetail} per PASSING round, using that
+     * round's own (non-summed) stats and its own video. Newest round first.
+     */
+    private List<AthleteDrillDetail> buildPassingRoundDetails(List<DrillRow> allDrills) {
+        Map<UUID, DrillItemRow> drillItemCache = new HashMap<>();
+        List<AthleteDrillDetail> roundDetails = new ArrayList<>();
+
+        for (DrillRow drillRow : allDrills) {
+            if (!DrillStatusConstants.COMPLETE.equals(drillRow.getDrillStatus())) {
+                continue;
+            }
+            DrillItemRow drillItem = drillItemCache.computeIfAbsent(drillRow.getDrillItemId(),
+                    id -> drillItemService.findById(id).orElse(null));
+            if (drillItem == null || drillItem.getName().isEmpty()) {
+                continue;
+            }
+            for (DrillAttemptHistoryRow h : drillAttemptHistoryService
+                    .findByDrillIdAndUserId(drillRow.getId(), drillRow.getUserId())) {
+                if (!isRoundPassing(h, drillItem)) {
+                    continue;
+                }
+                roundDetails.add(buildSingleRoundDetail(drillRow, drillItem, h));
+            }
+        }
+
+        roundDetails.sort((d1, d2) -> {
+            Optional<DrillAttemptHistoryResponse> a1 = d1.getDrillDetail().flatMap(DrillDetail::getMostRecentAttempt);
+            Optional<DrillAttemptHistoryResponse> a2 = d2.getDrillDetail().flatMap(DrillDetail::getMostRecentAttempt);
+            Timestamp r1 = a1.map(DrillAttemptHistoryResponse::getRecordedAt).orElse(null);
+            Timestamp r2 = a2.map(DrillAttemptHistoryResponse::getRecordedAt).orElse(null);
+            if (r1 == null && r2 == null) return 0;
+            if (r1 == null) return 1;
+            if (r2 == null) return -1;
+            return r2.compareTo(r1);
+        });
+        return roundDetails;
+    }
+
+    /**
+     * Build a single-round {@link AthleteDrillDetail}: drillDetail totals equal this
+     * one round's values (never a sum), attemptHistory holds exactly this round, and
+     * the media resolves to the round's own video (falling back to the drill-level
+     * media only when the round has none).
+     */
+    private AthleteDrillDetail buildSingleRoundDetail(DrillRow drillRow, DrillItemRow drillItem,
+            DrillAttemptHistoryRow h) {
+        DrillAttemptHistoryResponse roundResponse = toHistoryResponse(h, drillRow, drillItem);
+
+        Optional<UUID> roundMediaId = h.getMediaId() != null
+                ? Optional.of(h.getMediaId())
+                : drillRow.getMediaId();
+
+        List<DrillAttemptHistoryResponse> singleHistory = new ArrayList<>();
+        singleHistory.add(roundResponse);
+
+        DrillDetail drillDetail = DrillDetail.builder()
+                .id(drillRow.getId())
+                .drillItemId(drillRow.getDrillItemId())
+                .userId(drillRow.getUserId())
+                .mediaId(roundMediaId)
+                .drillStatus(DrillStatusConstants.COMPLETE)
+                .creationDate(drillRow.getCreationDate())
+                .modificationDate(drillRow.getModificationDate())
+                .version(drillRow.getVersion())
+                .attemptsDetected(nullSafe(h.getAttemptsDetected()))
+                .attemptsReported(nullSafe(h.getAttemptsReported()))
+                .makesDetected(nullSafe(h.getMakesDetected()))
+                .makesReported(nullSafe(h.getMakesReported()))
+                .attemptHistory(singleHistory)
+                .build();
+
+        return assembleDetail(drillRow, drillItem, drillDetail, roundMediaId);
+    }
+
+    /**
+     * Shared assembly of an {@link AthleteDrillDetail} from a representative drill
+     * row, its drill item, the prepared {@link DrillDetail}, and the media id to
+     * derive the card thumbnail from. Used by both the name/item union path and the
+     * single-round path so they cannot drift.
+     */
+    private AthleteDrillDetail assembleDetail(DrillRow representative, DrillItemRow repItem,
+            DrillDetail drillDetail, Optional<UUID> thumbnailMediaId) {
+        String mediaThumbnailUrl = null;
+        if (thumbnailMediaId != null && thumbnailMediaId.isPresent()) {
+            UUID mediaId = thumbnailMediaId.get();
+            mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
+            if (mediaThumbnailUrl == null) {
+                mediaThumbnailUrl = generateMediaThumbnailUrl(mediaId);
+            }
+        }
+
+        DrillGroupRow drillGroupRow = repItem != null && repItem.getDrillGroupId() != null
+                ? drillGroupService.findById(repItem.getDrillGroupId()).orElse(null)
+                : null;
+
+        AthleteDrillDetail.AthleteDrillDetailBuilder builder = AthleteDrillDetail.builder()
+                .drillDetail(Optional.of(drillDetail))
+                .drillGroup(drillGroupRow)
+                .mediaThumbnail(mediaThumbnailUrl)
+                .isLocked(false);
+
+        if (repItem != null) {
+            builder.drillItemId(repItem.getId())
+                    .teamId(repItem.getTeamId())
+                    .name(repItem.getName())
+                    .description(repItem.getDescription())
+                    .mediaId(repItem.getMediaId())
+                    .levelIndex(repItem.getLevelIndex())
+                    .levelTest(repItem.getLevelTest())
+                    .drillItemOrder(repItem.getDrillItemOrder())
+                    .passingScore(repItem.getPassingScore())
+                    .shotsMax(repItem.getShotsMax())
+                    .visibilityCode(repItem.getVisibilityCode())
+                    .allowRetryCode(repItem.getAllowRetryCode())
+                    .retryMax(repItem.getRetryMax())
+                    .timeLimitMs(repItem.getTimeLimitMs())
+                    .orderIndex(repItem.getOrderIndex() != null ? repItem.getOrderIndex() : -1);
+        } else {
+            builder.drillItemId(representative.getDrillItemId());
+        }
+        return builder.build();
+    }
+
+    /**
+     * Resolve the single passing round behind a coach notification. The notification
+     * carries the athlete, the drill, and (for newer completions) the stable
+     * {@code attemptLocalId}; that id globally and unambiguously pins the round.
+     * Older notifications without it fall back to the most recent passing round of
+     * the drill. Returns empty if the drill does not belong to the athlete or has no
+     * matching round.
+     */
+    public Optional<AthleteDrillDetail> findPassingRound(UUID athleteUserId, UUID drillId, String attemptLocalId) {
+        Optional<DrillRow> drillOpt = drillService.findById(drillId);
+        if (drillOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        DrillRow drillRow = drillOpt.get();
+        if (!athleteUserId.equals(drillRow.getUserId())) {
+            logger.warn("Drill {} does not belong to athlete {}", drillId, athleteUserId);
+            return Optional.empty();
+        }
+
+        DrillItemRow drillItem = drillItemService.findById(drillRow.getDrillItemId()).orElse(null);
+        List<DrillAttemptHistoryRow> rows = drillAttemptHistoryService
+                .findByDrillIdAndUserId(drillId, athleteUserId);
+
+        DrillAttemptHistoryRow match = null;
+        if (attemptLocalId != null && !attemptLocalId.isBlank()) {
+            match = rows.stream()
+                    .filter(r -> attemptLocalId.equals(r.getAttemptLocalId()))
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (match == null) {
+            // Fallback for notifications created before attemptLocalId was stored:
+            // the most recent passing round of the drill.
+            match = rows.stream()
+                    .filter(r -> isRoundPassing(r, drillItem))
+                    .max((a, b) -> {
+                        Timestamp ra = a.getRecordedAt();
+                        Timestamp rb = b.getRecordedAt();
+                        if (ra == null && rb == null) return 0;
+                        if (ra == null) return -1;
+                        if (rb == null) return 1;
+                        return ra.compareTo(rb);
+                    })
+                    .orElse(null);
+        }
+        if (match == null) {
+            return Optional.empty();
+        }
+        return Optional.of(buildSingleRoundDetail(drillRow, drillItem, match));
     }
 
     private String generateMediaThumbnailUrl(UUID mediaId) {

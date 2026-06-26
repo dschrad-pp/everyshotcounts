@@ -70,6 +70,10 @@ public class DrillService extends DrillBaseService {
         this.drillBaseDao = jdbiProvider.getJdbi().onDemand(DrillBaseDao.class);
     }
 
+    public Optional<DrillRow> findById(UUID drillId) {
+        return drillBaseDao.findById(drillId);
+    }
+
     public Optional<DrillRow> findByDrillItemIdAndUserId(UUID drillItemId, UUID userId) {
         try {
             return drillDao.findByDrillItemIdAndUserId(drillItemId, userId);

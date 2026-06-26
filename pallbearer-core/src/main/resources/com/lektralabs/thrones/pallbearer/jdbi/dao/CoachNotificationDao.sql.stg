@@ -2,18 +2,41 @@ group CoachNotificationDao;
 
 insert() ::= <<
     INSERT INTO t_coach_notification (
-        id, coach_id, athlete_id, drill_id, drill_item_id,
+        id, coach_id, athlete_id, drill_id, drill_item_id, attempt_local_id,
         drill_name, athlete_first_name, athlete_last_name,
         completed_at, is_read, is_dismissed, creation_date,
         score_adjusted, makes_detected, attempts_detected,
         makes_reported, attempts_reported
     ) VALUES (
-        :id, :coachId, :athleteId, :drillId, :drillItemId,
+        :id, :coachId, :athleteId, :drillId, :drillItemId, :attemptLocalId,
         :drillName, :athleteFirstName, :athleteLastName,
         :completedAt, :isRead, :isDismissed, :creationDate,
         :scoreAdjusted, :makesDetected, :attemptsDetected,
         :makesReported, :attemptsReported
     )
+>>
+
+findById() ::= <<
+    SELECT id
+         , coach_id
+         , athlete_id
+         , drill_id
+         , drill_item_id
+         , attempt_local_id
+         , drill_name
+         , athlete_first_name
+         , athlete_last_name
+         , completed_at
+         , is_read
+         , is_dismissed
+         , creation_date
+         , score_adjusted
+         , makes_detected
+         , attempts_detected
+         , makes_reported
+         , attempts_reported
+      FROM t_coach_notification
+     WHERE id = :id
 >>
 
 findByCoachIdPaginated() ::= <<
@@ -22,6 +45,7 @@ findByCoachIdPaginated() ::= <<
          , athlete_id
          , drill_id
          , drill_item_id
+         , attempt_local_id
          , drill_name
          , athlete_first_name
          , athlete_last_name

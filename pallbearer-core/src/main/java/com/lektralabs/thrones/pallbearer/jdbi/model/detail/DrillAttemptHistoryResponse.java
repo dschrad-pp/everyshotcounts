@@ -29,6 +29,26 @@ public class DrillAttemptHistoryResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private UUID drillItemId;
 
+    /**
+     * Stable client-generated id for this round (globally unique). Lets the client
+     * match a round across screens / to a coach notification without relying on
+     * timestamps. Copied from the t_drill_attempt_history row by the caller.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String attemptLocalId;
+
+    /** 1-based sequence of this round within its drill. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer attemptNumber;
+
+    /**
+     * Whether this single round passed (makesReported >= the drill item's
+     * passingScore; a null threshold counts as passed, mirroring the coach
+     * notification gate). Server-computed so the client never re-derives it.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean passed;
+
     private Integer attemptsDetected;
     private Integer attemptsReported;
     private Integer makesDetected;

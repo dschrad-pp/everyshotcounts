@@ -54,7 +54,8 @@ public class CoachNotificationService {
     }
 
     public void createNotificationForDrillCompletion(UUID athleteId, UUID drillId, UUID drillItemId,
-            Integer makesDetected, Integer attemptsDetected, Integer makesReported, Integer attemptsReported) {
+            String attemptLocalId, Integer makesDetected, Integer attemptsDetected,
+            Integer makesReported, Integer attemptsReported) {
         try {
             Optional<TeamRow> teamOpt = teamDao.findTeamByUserId(athleteId);
             if (teamOpt.isEmpty()) {
@@ -115,6 +116,7 @@ public class CoachNotificationService {
                     .athleteId(athleteId)
                     .drillId(drillId)
                     .drillItemId(drillItemId)
+                    .attemptLocalId(attemptLocalId)
                     .drillName(drillName)
                     .athleteFirstName(athleteFirstName)
                     .athleteLastName(athleteLastName)
@@ -168,6 +170,10 @@ public class CoachNotificationService {
     public List<CoachNotificationRow> findByCoachId(UUID coachId, int page, int limit) {
         int offset = (page - 1) * limit;
         return coachNotificationDao.findByCoachIdPaginated(coachId, limit, offset);
+    }
+
+    public Optional<CoachNotificationRow> findById(UUID notificationId) {
+        return coachNotificationDao.findById(notificationId);
     }
 
     public int countByCoachId(UUID coachId) {

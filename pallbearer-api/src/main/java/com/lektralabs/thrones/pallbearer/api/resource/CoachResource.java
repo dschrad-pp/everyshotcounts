@@ -100,7 +100,9 @@ public class CoachResource {
             @PathParam("athleteId") UUID athleteId,
             @QueryParam("scope") @DefaultValue("name") String scope) {
         // scope=name (default) -> cross-difficulty union by name (My Drills);
-        // scope=item -> one entry per drill item (notification detail / Video tab).
+        // scope=item -> one entry per drill item;
+        // scope=round -> one entry per PASSING round (Video tab "Previous 10 Drills").
+        // The notification tap uses the dedicated .../notification/{id}/round endpoint.
         List<AthleteDrillDetail> athleteDrillDetails = athleteDrillService
                 .findLatestAttemptedDrillsForAthleteUnderCoach(coachId, athleteId, scope);
         // logger.info(String.format("the number of drills returned : %s",

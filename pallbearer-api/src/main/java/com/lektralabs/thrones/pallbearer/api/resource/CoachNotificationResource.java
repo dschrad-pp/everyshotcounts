@@ -2,6 +2,8 @@ package com.lektralabs.thrones.pallbearer.api.resource;
 
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.CoachNotificationRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.CoachNotificationService;
 import com.lektralabs.thrones.pallbearer.security.CurrentUserUtils;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -16,6 +18,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,9 @@ public class CoachNotificationResource {
 
     @Inject
     CoachNotificationService coachNotificationService;
+
+    @Inject
+    AthleteDrillService athleteDrillService;
 
     @Inject
     CurrentUserUtils currentUserUtils;
@@ -75,6 +81,51 @@ public class CoachNotificationResource {
         }
     }
 
+    /**
+     * Resolve a tapped coach notification to the single passing round it was created
+     * for — one round, one video, that round's own (non-summed) stats. Keyed on the
+     * server-unique notification id the client already holds, so the iOS side does
+     * one exact lookup instead of fetching the whole drill list and filtering.
+     */
+    @GET
+    @Path("/{coachId}/notification/{notificationId}/round")
+    @RolesAllowed({"ADMIN", "COACH"})
+    public Response getNotificationRound(
+            @PathParam("coachId") UUID coachId,
+            @PathParam("notificationId") UUID notificationId) {
+        try {
+            if (!isCallerOrAdmin(coachId)) {
+                return Response.status(403)
+                        .entity(new GenericApiResponse<>(403, "Forbidden", null))
+                        .build();
+            }
+
+            Optional<CoachNotificationRow> notificationOpt = coachNotificationService.findById(notificationId);
+            if (notificationOpt.isEmpty() || !coachId.equals(notificationOpt.get().getCoachId())) {
+                return Response.status(404)
+                        .entity(new GenericApiResponse<>(404, "Notification not found", null))
+                        .build();
+            }
+
+            CoachNotificationRow notification = notificationOpt.get();
+            Optional<AthleteDrillDetail> round = athleteDrillService.findPassingRound(
+                    notification.getAthleteId(),
+                    notification.getDrillId(),
+                    notification.getAttemptLocalId());
+
+            return round
+                    .map(r -> Response.ok(new GenericApiResponse<>(200, "OK", r)).build())
+                    .orElseGet(() -> Response.status(404)
+                            .entity(new GenericApiResponse<>(404, "Round not found for notification", null))
+                            .build());
+        } catch (Exception e) {
+            logger.errorf(e, "Failed to fetch round for notificationId=%s", notificationId);
+            return Response.status(500)
+                    .entity(new GenericApiResponse<>(500, "Failed to fetch notification round", null))
+                    .build();
+        }
+    }
+
     @DELETE
     @Path("/{coachId}/notifications")
     @RolesAllowed({"ADMIN", "COACH"})
@@ -113,8 +164,13 @@ public class CoachNotificationResource {
         m.put("athleteLastName", row.getAthleteLastName());
         m.put("drillId", row.getDrillId().toString());
         m.put("drillItemId", row.getDrillItemId().toString());
+        m.put("attemptLocalId", row.getAttemptLocalId());
         m.put("drillName", row.getDrillName());
         m.put("completedAt", Instant.ofEpochMilli(row.getCompletedAt()).toString());
+        // Coach notifications only fire on a passing completion, so a stored
+        // notification is always a pass. Surfaced so the list can render pass state
+        // without a per-row drill-item fetch.
+        m.put("passed", true);
         m.put("isRead", row.getIsRead());
         m.put("scoreAdjusted", row.getScoreAdjusted());
         m.put("makesDetected", row.getMakesDetected());
