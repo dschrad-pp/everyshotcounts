@@ -9,9 +9,11 @@ on:
 # `media` source package (media/ffmpeg, media/thronescv, media/pipeline, etc.)
 # is not yet committed to git — it only exists on the EC2 box, so a fresh CI
 # checkout cannot compile. Until that source is added to the repo, the build is
-# only reproducible on EC2. The on-box script below still fails safe: a broken
-# build aborts before the service is restarted.
-# TODO: re-add a `build-and-test` job with `needs:` once media/ is committed.
+# only reproducible on EC2. The on-box script below fails safe: a broken build
+# aborts before restart, and a broken boot is caught by a /health/ready poll
+# that fails the deploy red.
+# TODO: re-add a clean-room `build-and-test` job with `needs:` once the media/
+# source is committed to git (it's currently EC2-only — also a data-loss risk).
 
 jobs:
   deploy:
@@ -27,14 +29,39 @@ jobs:
           # set -euo pipefail: any failing command (e.g. a broken build) aborts
           # the script before the service is restarted, so a failed build never
           # results in a restart onto broken/stale code.
+          #
+          # Gate (fail-loud): build -> restart -> poll the app's real readiness
+          # endpoint. A compile error aborts before restart (build gate); a
+          # runtime/boot failure is caught by the /health/ready poll, which fails
+          # the deploy red and dumps logs. We do NOT auto-rollback — the service is
+          # left as-is for a fix-forward.
           script: |
             set -euo pipefail
             cd /var/www/html/pallbearer
             git pull origin feat/development
+
+            # Build first. With set -e, a compile failure stops here, before any
+            # restart, so the running service is never replaced by a broken build.
             mvn clean install -DskipTests=true
+
             sudo systemctl restart quarkus-backend.service
-            # Give the service a moment to come up, then verify it is actually
-            # running. If it failed to start, this fails the deploy loudly.
-            sleep 5
-            sudo systemctl is-active --quiet quarkus-backend.service
-            sudo systemctl status quarkus-backend.service --no-pager
+
+            # Readiness gate: poll the real health endpoint, not just
+            # `systemctl is-active`. is-active only proves the JVM process
+            # launched; /health/ready (quarkus-smallrye-health) proves the app
+            # actually booted, wired its datasource/Flyway migrations, and is
+            # serving requests. Port 8000 matches pallbearer.server.base-url.
+            echo "Waiting for /health/ready ..."
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:8000/health/ready >/dev/null 2>&1; then
+                echo "✅ Service healthy after ${i} attempt(s)."
+                sudo systemctl status quarkus-backend.service --no-pager
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "❌ Service did not become healthy within ~60s — failing deploy."
+            sudo journalctl -u quarkus-backend.service -n 80 --no-pager || true
+            sudo systemctl status quarkus-backend.service --no-pager || true
+            exit 1
