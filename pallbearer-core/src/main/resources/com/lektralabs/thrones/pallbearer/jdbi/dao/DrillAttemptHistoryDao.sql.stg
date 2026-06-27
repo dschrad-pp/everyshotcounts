@@ -94,20 +94,20 @@ WHERE user_id = :userId
   AND drill_id = :drillId;
 >>
 
-/*
- * Athlete activity heatmap. Counts completion submissions per calendar day,
- * bucketed in the athlete's requested IANA timezone (:tz).
- *
- * recorded_at is "timestamp without time zone" holding UTC wall-clock, so
- * (recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz) shifts it to local wall-clock
- * before truncating to a date -- a completion at 11:40pm local lands on that local
- * day, not the UTC day.
- *
- * The recorded_at BETWEEN bounds are the [from 00:00 local, to 23:59:59.999999 local]
- * window expressed back in UTC. They are an exact equivalent of "local date in
- * [:fromDate, :toDate]" (bucketing is monotonic in the instant) and, unlike the
- * functional expression, are sargable against idx_drill_attempt_history_user_recorded.
- */
+<!
+  Athlete activity heatmap. Counts completion submissions per calendar day,
+  bucketed in the athlete's requested IANA timezone (:tz).
+
+  recorded_at is 'timestamp without time zone' holding UTC wall-clock, so
+  (recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz) shifts it to local wall-clock
+  before truncating to a date: a completion at 11:40pm local lands on that local
+  day, not the UTC day.
+
+  The recorded_at BETWEEN bounds are the [from-start-local, to-end-local] window
+  expressed back in UTC. They are an exact equivalent of "local date in
+  [:fromDate, :toDate]" (bucketing is monotonic in the instant) and, unlike the
+  functional expression, are sargable against idx_drill_attempt_history_user_recorded.
+!>
 activityByDay() ::=
 <<
 SELECT to_char((recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz)::date, 'YYYY-MM-DD') AS date,
