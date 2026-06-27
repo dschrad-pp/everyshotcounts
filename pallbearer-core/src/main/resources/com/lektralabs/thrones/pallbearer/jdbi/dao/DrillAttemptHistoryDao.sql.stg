@@ -108,15 +108,25 @@ WHERE user_id = :userId
   [:fromDate, :toDate]" (bucketing is monotonic in the instant) and, unlike the
   functional expression, are sargable against idx_drill_attempt_history_user_recorded.
 !>
+<!
+  The day-bucket expression is computed once in a subquery and grouped as a plain
+  column (local_date). It must NOT appear in both the projection and the GROUP BY,
+  because JDBI expands each :tz occurrence into a distinct positional placeholder,
+  so two textually-identical expressions are not parse-tree-equal and Postgres
+  rejects the GROUP BY ("column ... must appear in the GROUP BY clause").
+!>
 activityByDay() ::=
 <<
-SELECT to_char((recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz)::date, 'YYYY-MM-DD') AS date,
+SELECT to_char(local_date, 'YYYY-MM-DD') AS date,
        COUNT(*) AS completed_count
-FROM t_drill_attempt_history
-WHERE user_id = :userId
-  AND recorded_at BETWEEN
-        ((:fromDate)::timestamp AT TIME ZONE :tz AT TIME ZONE 'UTC')
-        AND (((:toDate)::timestamp + INTERVAL '1 day' - INTERVAL '1 microsecond') AT TIME ZONE :tz AT TIME ZONE 'UTC')
-GROUP BY (recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz)::date
-ORDER BY (recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz)::date;
+FROM (
+    SELECT (recorded_at AT TIME ZONE 'UTC' AT TIME ZONE :tz)::date AS local_date
+    FROM t_drill_attempt_history
+    WHERE user_id = :userId
+      AND recorded_at BETWEEN
+            ((:fromDate)::timestamp AT TIME ZONE :tz AT TIME ZONE 'UTC')
+            AND (((:toDate)::timestamp + INTERVAL '1 day' - INTERVAL '1 microsecond') AT TIME ZONE :tz AT TIME ZONE 'UTC')
+) AS days
+GROUP BY local_date
+ORDER BY local_date;
 >>
