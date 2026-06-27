@@ -1,5 +1,6 @@
 package com.lektralabs.thrones.pallbearer.jdbi.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -9,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.DrillAttemptHistoryDao;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.ActivityDay;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 
 import jakarta.annotation.PostConstruct;
@@ -73,5 +75,14 @@ public class DrillAttemptHistoryService {
 
     public int getAttemptCount(UUID userId, UUID drillId) {
         return drillAttemptHistoryDao.getAttemptCount(userId, drillId);
+    }
+
+    /**
+     * Per-day completion counts for the athlete activity heatmap, bucketed in the
+     * given IANA timezone, both bounds inclusive. Zero-completion days are omitted.
+     */
+    public List<ActivityDay> getActivityByDay(UUID userId, LocalDate fromDate, LocalDate toDate, String tz) {
+        logger.debug("Fetching activity heatmap for userId={} from {} to {} tz={}", userId, fromDate, toDate, tz);
+        return drillAttemptHistoryDao.activityByDay(userId, fromDate, toDate, tz);
     }
 }

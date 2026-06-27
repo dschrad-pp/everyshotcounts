@@ -1,5 +1,6 @@
 package com.lektralabs.thrones.pallbearer.jdbi.dao;
 
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.ActivityDay;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -9,6 +10,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.stringtemplate4.UseStringTemplateSqlLocator;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,4 +54,17 @@ public interface DrillAttemptHistoryDao {
     @UseStringTemplateSqlLocator
     @SqlQuery("getAttemptCount")
     int getAttemptCount(@Bind("userId") UUID userId, @Bind("drillId") UUID drillId);
+
+    /**
+     * Per-day completion counts for the athlete activity heatmap, bucketed in the
+     * given IANA timezone. Both bounds inclusive. Days with zero completions are
+     * absent from the result (the client zero-fills).
+     */
+    @UseStringTemplateSqlLocator
+    @SqlQuery("activityByDay")
+    @RegisterBeanMapper(ActivityDay.class)
+    List<ActivityDay> activityByDay(@Bind("userId") UUID userId,
+                                    @Bind("fromDate") LocalDate fromDate,
+                                    @Bind("toDate") LocalDate toDate,
+                                    @Bind("tz") String tz);
 }
