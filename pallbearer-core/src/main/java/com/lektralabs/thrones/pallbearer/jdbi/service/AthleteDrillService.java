@@ -138,11 +138,20 @@ public class AthleteDrillService {
         athleteDrillDetails = athleteDrillItemLockManager.unlockAllDrills(
                 athleteUserId, drillGroupId, athleteDrillDetails);
 
+        // Batch the attempt history for every attempted drill in this group in one
+        // round-trip, keyed by drill id, instead of one query per drill in the loop.
+        List<UUID> attemptedDrillIds = athleteDrillDetails.stream()
+                .filter(d -> d.getDrillDetail().isPresent() && d.getDrillDetail().get().getId() != null)
+                .map(d -> d.getDrillDetail().get().getId())
+                .collect(java.util.stream.Collectors.toList());
+        Map<UUID, List<DrillAttemptHistoryRow>> historyByDrillId = drillAttemptHistoryService
+                .findByDrillIdsAndUserId(attemptedDrillIds, athleteUserId);
+
         for (AthleteDrillDetail detail : athleteDrillDetails) {
             if (detail.getDrillDetail().isPresent()) {
                 DrillDetail drillDetail = detail.getDrillDetail().get();
-                List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
-                        .findByDrillIdAndUserId(drillDetail.getId(), drillDetail.getUserId());
+                List<DrillAttemptHistoryRow> historyRows = historyByDrillId
+                        .getOrDefault(drillDetail.getId(), Collections.emptyList());
                 drillDetail.setAttemptHistory(historyRows.stream()
                         .map(r -> DrillAttemptHistoryResponse.from(r, serverBaseUrl))
                         .collect(Collectors.toList()));
@@ -539,6 +548,9 @@ public class AthleteDrillService {
         // scope=item -> drillItemId (single drill item for notifications / Video tab)
         Map<String, List<DrillRow>> drillsByGroupKey = new LinkedHashMap<>();
         Map<UUID, DrillItemRow> drillItemCache = new HashMap<>();
+        // Resolve each distinct drill group at most once per request (only 4 exist),
+        // replacing the per-drill drillGroupService.findById in assembleDetail.
+        Map<UUID, DrillGroupRow> drillGroupCache = new HashMap<>();
 
         for (DrillRow drillRow : allDrills) {
             if (!DrillStatusConstants.COMPLETE.equals(drillRow.getDrillStatus())) {
@@ -565,6 +577,20 @@ public class AthleteDrillService {
             drillsByGroupKey.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(drillRow);
         }
 
+        // Batch every grouped drill's attempt history in a single round-trip, keyed by
+        // drill id. Replaces the former per-drill findByDrillIdAndUserId N+1 fan-out.
+        List<UUID> completeDrillIds = drillsByGroupKey.values().stream()
+                .flatMap(List::stream)
+                .map(DrillRow::getId)
+                .collect(java.util.stream.Collectors.toList());
+        Map<UUID, List<DrillAttemptHistoryRow>> historyByDrillId = drillAttemptHistoryService
+                .findByDrillIdsAndUserId(completeDrillIds, athleteUserId);
+
+        // scope=name (Stats tab) never renders a thumbnail, so skip the per-drill
+        // getThumbnailUrl (which generates a still frame via ffmpeg on a cache miss).
+        // scope=item consumers may still use it, so keep it there.
+        boolean resolveThumbnail = groupByItem;
+
         List<AthleteDrillDetail> combinedDetails = new ArrayList<>();
 
         for (List<DrillRow> variants : drillsByGroupKey.values()) {
@@ -578,8 +604,8 @@ public class AthleteDrillService {
             Timestamp latestRecordedAt = null;
 
             for (DrillRow drillRow : variants) {
-                List<DrillAttemptHistoryRow> historyRows = drillAttemptHistoryService
-                        .findByDrillIdAndUserId(drillRow.getId(), drillRow.getUserId());
+                List<DrillAttemptHistoryRow> historyRows = historyByDrillId
+                        .getOrDefault(drillRow.getId(), Collections.emptyList());
 
                 if (historyRows.isEmpty()) {
                     // Defence-in-depth: a COMPLETE drill with no per-round history.
@@ -643,7 +669,7 @@ public class AthleteDrillService {
                     .build();
 
             combinedDetails.add(assembleDetail(representative, repItem, drillDetail,
-                    representative.getMediaId()));
+                    representative.getMediaId(), resolveThumbnail, drillGroupCache));
         }
 
         // Most-recently-attempted drill first. No limit: every drill in the list
@@ -700,7 +726,18 @@ public class AthleteDrillService {
      */
     private List<AthleteDrillDetail> buildPassingRoundDetails(List<DrillRow> allDrills) {
         Map<UUID, DrillItemRow> drillItemCache = new HashMap<>();
+        Map<UUID, DrillGroupRow> drillGroupCache = new HashMap<>();
         List<AthleteDrillDetail> roundDetails = new ArrayList<>();
+
+        // Batch every COMPLETE drill's history in one round-trip (all drills belong to
+        // the same athlete), replacing the former per-drill findByDrillIdAndUserId N+1.
+        List<UUID> completeDrillIds = allDrills.stream()
+                .filter(d -> DrillStatusConstants.COMPLETE.equals(d.getDrillStatus()))
+                .map(DrillRow::getId)
+                .collect(java.util.stream.Collectors.toList());
+        UUID athleteUserId = allDrills.isEmpty() ? null : allDrills.get(0).getUserId();
+        Map<UUID, List<DrillAttemptHistoryRow>> historyByDrillId = drillAttemptHistoryService
+                .findByDrillIdsAndUserId(completeDrillIds, athleteUserId);
 
         for (DrillRow drillRow : allDrills) {
             if (!DrillStatusConstants.COMPLETE.equals(drillRow.getDrillStatus())) {
@@ -711,12 +748,12 @@ public class AthleteDrillService {
             if (drillItem == null || drillItem.getName().isEmpty()) {
                 continue;
             }
-            for (DrillAttemptHistoryRow h : drillAttemptHistoryService
-                    .findByDrillIdAndUserId(drillRow.getId(), drillRow.getUserId())) {
+            for (DrillAttemptHistoryRow h : historyByDrillId
+                    .getOrDefault(drillRow.getId(), Collections.emptyList())) {
                 if (!isRoundPassing(h, drillItem)) {
                     continue;
                 }
-                roundDetails.add(buildSingleRoundDetail(drillRow, drillItem, h));
+                roundDetails.add(buildSingleRoundDetail(drillRow, drillItem, h, drillGroupCache));
             }
         }
 
@@ -740,7 +777,7 @@ public class AthleteDrillService {
      * media only when the round has none).
      */
     private AthleteDrillDetail buildSingleRoundDetail(DrillRow drillRow, DrillItemRow drillItem,
-            DrillAttemptHistoryRow h) {
+            DrillAttemptHistoryRow h, Map<UUID, DrillGroupRow> drillGroupCache) {
         DrillAttemptHistoryResponse roundResponse = toHistoryResponse(h, drillRow, drillItem);
 
         Optional<UUID> roundMediaId = h.getMediaId() != null
@@ -766,7 +803,8 @@ public class AthleteDrillService {
                 .attemptHistory(singleHistory)
                 .build();
 
-        return assembleDetail(drillRow, drillItem, drillDetail, roundMediaId);
+        // Video tab renders the per-round still frame, so resolve the thumbnail here.
+        return assembleDetail(drillRow, drillItem, drillDetail, roundMediaId, true, drillGroupCache);
     }
 
     /**
@@ -776,9 +814,12 @@ public class AthleteDrillService {
      * single-round path so they cannot drift.
      */
     private AthleteDrillDetail assembleDetail(DrillRow representative, DrillItemRow repItem,
-            DrillDetail drillDetail, Optional<UUID> thumbnailMediaId) {
+            DrillDetail drillDetail, Optional<UUID> thumbnailMediaId, boolean resolveThumbnail,
+            Map<UUID, DrillGroupRow> drillGroupCache) {
         String mediaThumbnailUrl = null;
-        if (thumbnailMediaId != null && thumbnailMediaId.isPresent()) {
+        // getThumbnailUrl can synchronously generate a still frame (ffmpeg) on a cache
+        // miss, so only pay it for callers whose client actually renders the thumbnail.
+        if (resolveThumbnail && thumbnailMediaId != null && thumbnailMediaId.isPresent()) {
             UUID mediaId = thumbnailMediaId.get();
             mediaThumbnailUrl = galleryMediaService.getThumbnailUrl(mediaId, serverBaseUrl);
             if (mediaThumbnailUrl == null) {
@@ -787,7 +828,8 @@ public class AthleteDrillService {
         }
 
         DrillGroupRow drillGroupRow = repItem != null && repItem.getDrillGroupId() != null
-                ? drillGroupService.findById(repItem.getDrillGroupId()).orElse(null)
+                ? drillGroupCache.computeIfAbsent(repItem.getDrillGroupId(),
+                        id -> drillGroupService.findById(id).orElse(null))
                 : null;
 
         AthleteDrillDetail.AthleteDrillDetailBuilder builder = AthleteDrillDetail.builder()
@@ -866,7 +908,8 @@ public class AthleteDrillService {
         if (match == null) {
             return Optional.empty();
         }
-        return Optional.of(buildSingleRoundDetail(drillRow, drillItem, match));
+        // Single round (notification tap): a fresh one-entry group cache is sufficient.
+        return Optional.of(buildSingleRoundDetail(drillRow, drillItem, match, new HashMap<>()));
     }
 
     private String generateMediaThumbnailUrl(UUID mediaId) {

@@ -5,6 +5,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistor
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindBean;
+import org.jdbi.v3.sqlobject.customizer.BindList;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -34,6 +35,18 @@ public interface DrillAttemptHistoryDao {
     @UseStringTemplateSqlLocator
     @SqlQuery("findByDrillIdAndUserId")
     List<DrillAttemptHistoryRow> findByDrillIdAndUserId(@Bind("drillId") UUID drillId, @Bind("userId") UUID userId);
+
+    /**
+     * Batched sibling of {@link #findByDrillIdAndUserId}: fetch the attempt history
+     * for many drills of a single user in one round-trip. Callers must guard against
+     * an empty id list (the SQL would emit an invalid {@code IN ()}). Rows stay
+     * ordered by {@code recorded_at DESC} so per-drill grouping preserves the same
+     * ordering as the single-drill query.
+     */
+    @UseStringTemplateSqlLocator
+    @SqlQuery("findByDrillIdsAndUserId")
+    List<DrillAttemptHistoryRow> findByDrillIdsAndUserId(@BindList("drillIds") List<UUID> drillIds,
+                                                         @Bind("userId") UUID userId);
 
     @UseStringTemplateSqlLocator
     @SqlQuery("findById")

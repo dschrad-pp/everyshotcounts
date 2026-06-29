@@ -1,9 +1,12 @@
 package com.lektralabs.thrones.pallbearer.jdbi.service;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +38,22 @@ public class DrillAttemptHistoryService {
     public List<DrillAttemptHistoryRow> findByDrillIdAndUserId(UUID drillId, UUID userId) {
         logger.debug("Fetching DrillAttemptHistory for drillId={} and userId={}", drillId, userId);
         return drillAttemptHistoryDao.findByDrillIdAndUserId(drillId, userId);
+    }
+
+    /**
+     * Batched form of {@link #findByDrillIdAndUserId}: one round-trip for many drills
+     * of a single user, grouped by drill id. Eliminates the per-drill N+1 fan-out on
+     * the coach drill-detail / curriculum endpoints. Drills with no history are simply
+     * absent from the map (callers use {@code getOrDefault(..., emptyList())}); the
+     * per-drill ordering matches the single-drill query ({@code recorded_at DESC}).
+     */
+    public Map<UUID, List<DrillAttemptHistoryRow>> findByDrillIdsAndUserId(List<UUID> drillIds, UUID userId) {
+        if (drillIds == null || drillIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        logger.debug("Batch-fetching DrillAttemptHistory for {} drillIds and userId={}", drillIds.size(), userId);
+        return drillAttemptHistoryDao.findByDrillIdsAndUserId(drillIds, userId).stream()
+                .collect(Collectors.groupingBy(DrillAttemptHistoryRow::getDrillId));
     }
 
     public UUID insertHistory(DrillAttemptHistoryRow row) {
