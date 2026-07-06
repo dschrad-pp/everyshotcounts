@@ -51,8 +51,20 @@ public class AccountDeletionService {
     /** Overridable in tests; production uses the system clock. */
     LongSupplier clock = System::currentTimeMillis;
 
+    // Plain classes, not records: the jandex-maven-plugin pinned in this build (1.2.3)
+    // throws EOFException on the record class-file format and aborts the deploy.
+
     /** Outcome of a deletion request; {@code purgeAfter} is epoch millis. */
-    public record DeletionResult(long purgeAfter) {
+    public static final class DeletionResult {
+        private final long purgeAfter;
+
+        public DeletionResult(long purgeAfter) {
+            this.purgeAfter = purgeAfter;
+        }
+
+        public long purgeAfter() {
+            return purgeAfter;
+        }
     }
 
     /**
@@ -60,7 +72,16 @@ public class AccountDeletionService {
      * resume the Stripe subscription (e.g. a canceled trial) and the app should prompt
      * the user to re-subscribe.
      */
-    public record RestoreResult(boolean subscriptionRestored) {
+    public static final class RestoreResult {
+        private final boolean subscriptionRestored;
+
+        public RestoreResult(boolean subscriptionRestored) {
+            this.subscriptionRestored = subscriptionRestored;
+        }
+
+        public boolean subscriptionRestored() {
+            return subscriptionRestored;
+        }
     }
 
     /**
