@@ -8,7 +8,6 @@ import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.Config;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.util.List;
@@ -43,10 +42,11 @@ public class AccountPurgeJob {
     @Inject
     Config config;
 
-    @ConfigProperty(name = "account.purge.cron", defaultValue = "0 30 4 * * ?")
-    String purgeCron;
-
-    @Scheduled(cron = "{account.purge.cron}", identity = "account-purge")
+    // Cron is hardcoded on purpose: a "{property}" expression here requires the property to
+    // exist in the box's application.properties and kills startup when it doesn't (the field
+    // defaultValue does not apply to the annotation). Daily 04:30; the real gate is the
+    // account.purge.enabled flag below.
+    @Scheduled(cron = "0 30 4 * * ?", identity = "account-purge")
     void purgeExpiredAccounts() {
         // Read at runtime (same pattern as crm.sync.enabled) so prod can flip the flag
         // without a code change. Defaults to DISABLED.
