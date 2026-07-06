@@ -47,4 +47,11 @@ public class DeviceTokenService {
     public void deleteByUserId(UUID userId, String platform) {
         deviceTokenDao.deleteByUserId(userId, platform);
     }
+
+    /** Removes every platform's push token for the user (account deletion / purge). */
+    public int deleteAllByUserId(UUID userId) {
+        int deleted = deviceTokenDao.deleteAllByUserId(userId);
+        logger.infof("Deleted %d device token(s) for userId=%s", deleted, userId);
+        return deleted;
+    }
 }

@@ -19,6 +19,9 @@ public class CrmApiClient {
     private static final String CRM_BASE_URL =  "https://crm.everyshotcounts.ai/api/v1";
     private static final String AUTH_ENDPOINT = "/auth/applogin/";
     private static final String REGISTRATIONS_ENDPOINT = "/registrations/";
+    // Server-to-server account deletion endpoints (X-CRM-Api-Key auth, /api/crm prefix)
+    private static final String ACCOUNT_DELETE_URL = "https://crm.everyshotcounts.ai/api/crm/account/delete-request";
+    private static final String ACCOUNT_RESTORE_URL = "https://crm.everyshotcounts.ai/api/crm/account/restore";
     @org.eclipse.microprofile.config.inject.ConfigProperty(name = "crm.ios.api.key")
     String crmIosApiKey;
     private final OkHttpClient client;
@@ -233,4 +236,90 @@ if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
         throw new IOException("Timeout connecting to CRM API", e);
     }
 }
+
+    /**
+     * Server-to-server: ask the CRM to start the 30-day deletion grace period for the account
+     * (Stripe cancel + soft delete on the CRM side). Idempotent on the CRM.
+     *
+     * @return the CRM's {@code purge_after} (ISO-8601), or {@code null} when the CRM has no
+     *         account for that email (404) — e.g. a local-only "coachprime" coach.
+     * @throws IOException any other failure; the caller must abort and commit nothing locally.
+     */
+    public String requestAccountDeletion(String email) throws IOException {
+        try {
+            Map<String, Object> result = postAccountCall(ACCOUNT_DELETE_URL, email, "delete-request");
+            return result != null ? (String) result.get("purge_after") : null;
+        } catch (CrmAccountPurgedException e) {
+            // The delete endpoint never returns 410; treat it as an unexpected response.
+            throw new IOException("Unexpected 410 from CRM delete-request", e);
+        }
+    }
+
+    /**
+     * Server-to-server: restore an account still inside its grace window. Idempotent on the CRM.
+     *
+     * @return {@code subscription_restored} from the CRM, or {@code null} when the CRM has no
+     *         account for that email (404).
+     * @throws CrmAccountPurgedException the grace period already ended and the CRM purged the
+     *         account (410) — permanent, no restore possible.
+     * @throws IOException any other failure; the caller must abort and keep its local flags.
+     */
+    public Boolean restoreAccount(String email) throws IOException, CrmAccountPurgedException {
+        Map<String, Object> result = postAccountCall(ACCOUNT_RESTORE_URL, email, "restore");
+        if (result == null) {
+            return null;
+        }
+        Object restored = result.get("subscription_restored");
+        return restored instanceof Boolean ? (Boolean) restored : Boolean.FALSE;
+    }
+
+    /**
+     * Shared POST for the two account endpoints: 200 → parsed body, 404 → null,
+     * 410 → {@link CrmAccountPurgedException}, anything else → {@link IOException}.
+     */
+    private Map<String, Object> postAccountCall(String url, String email, String action)
+            throws IOException, CrmAccountPurgedException {
+        if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
+            logger.error("CRM iOS API key is not configured");
+            throw new IOException("CRM API key not configured");
+        }
+
+        RequestBody body = RequestBody.create(
+            objectMapper.writeValueAsString(Map.of("email", email)),
+            MediaType.parse("application/json")
+        );
+
+        Request request = new Request.Builder()
+            .url(url)
+            .post(body)
+            .addHeader("X-CRM-Api-Key", crmIosApiKey)
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "application/json")
+            .build();
+
+        logger.info("CRM account " + action + " for email: " + email);
+        try (Response response = client.newCall(request).execute()) {
+            int code = response.code();
+            if (code == 200) {
+                String responseBody = response.body().string();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+                return responseMap;
+            }
+            if (code == 404) {
+                logger.info("CRM account " + action + ": no CRM account for email " + email);
+                return null;
+            }
+            if (code == 410) {
+                logger.info("CRM account " + action + ": account already purged for email " + email);
+                throw new CrmAccountPurgedException(email);
+            }
+            String errorBody = response.body() != null ? response.body().string() : "No error body";
+            logger.error("CRM account " + action + " failed. Status: " + code + ", Error: " + errorBody);
+            throw new IOException("CRM account " + action + " failed. Status: " + code);
+        } catch (java.net.SocketTimeoutException e) {
+            logger.error("Timeout on CRM account " + action, e);
+            throw new IOException("Timeout connecting to CRM API", e);
+        }
+    }
 }

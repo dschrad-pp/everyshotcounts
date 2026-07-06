@@ -129,6 +129,28 @@ public class SsoResource {
         loginRateLimiter.reset(LoginRateLimiter.userKey(username), LoginRateLimiter.ipKey(clientIp));
     }
 
+    /**
+     * If the local account is pending deletion (30-day grace), build the login response the
+     * app expects: {@code {accountPendingDeletion:true, purgeAfter}} with 200 and NO token.
+     * Returns {@code null} when the account is not pending. Only call after the caller has
+     * verified the user's credentials.
+     */
+    private Response pendingDeletionResponseOrNull(String usernameOrEmail) {
+        UserRow row = userService.findByUsername(usernameOrEmail)
+                .or(() -> userService.findByEmail(usernameOrEmail))
+                .orElse(null);
+        if (row == null || row.getDeletionRequestedAt() == null) {
+            return null;
+        }
+        logger.info("Login while pending deletion for user {} — returning restore prompt, no token", row.getId());
+        Map<String, Object> body = new HashMap<>();
+        body.put("accountPendingDeletion", true);
+        if (row.getPurgeAfter() != null) {
+            body.put("purgeAfter", java.time.Instant.ofEpochMilli(row.getPurgeAfter()).toString());
+        }
+        return Response.ok(body).build();
+    }
+
     @Path("/login")
     @POST
     public Response login(LoginUser loginUser) {
@@ -348,6 +370,17 @@ public class SsoResource {
                 return authError(AuthErrorCode.INVALID_CREDENTIALS);
             }
 
+            // Step 1a: Account pending deletion (30-day grace)? Credentials verified above, so
+            // it's safe to disclose the state. Return the flag and NO token — the app offers
+            // the restore flow. Must run BEFORE the payment check (the CRM registration is
+            // REVOKED during grace and would misreport as PAYMENT_REQUIRED) and before any
+            // Keycloak password sync / token issuance.
+            Response pendingDeletion = pendingDeletionResponseOrNull(username);
+            if (pendingDeletion != null) {
+                clearLoginFailures(username, clientIp);
+                return pendingDeletion;
+            }
+
             // Step 2: Check local t_crm_registration — confirms they were synced/webhoooked (i.e. registered in CRM)
             CrmRegistrationRow registration = crmRegistrationService.findByUsername(username)
                     .or(() -> crmRegistrationService.findByEmail(username))
@@ -482,6 +515,39 @@ public Response coachLogin(LoginUser loginUser,
         if (coach == null) {
             recordLoginFailure(username, clientIp);
             return authError(AuthErrorCode.INVALID_CREDENTIALS);
+        }
+
+        // Account pending deletion (30-day grace)? Verify the credentials WITHOUT the usual
+        // password sync below (which would overwrite the Keycloak password before verifying),
+        // then return {accountPendingDeletion, purgeAfter} with NO token so the app can offer
+        // the restore flow.
+        UserRow coachUserRow = userService.findByUsername(coach.getUsername()).orElse(null);
+        if (coachUserRow != null && coachUserRow.getDeletionRequestedAt() != null) {
+            boolean credentialsValid;
+            try {
+                boolean crmBacked = crmRegistrationService.findByUsername(username)
+                        .or(() -> crmRegistrationService.findByEmail(username))
+                        .isPresent();
+                if (crmBacked) {
+                    credentialsValid = crmApiClient.validateUserCredentials(username, password);
+                } else {
+                    // Local-only coach: the Keycloak user stays enabled during grace precisely
+                    // so this password check keeps working.
+                    keycloakProvider.getUserAccessToken(coach.getUsername(), password);
+                    credentialsValid = true;
+                }
+            } catch (IllegalArgumentException e) {
+                credentialsValid = false;
+            } catch (IOException e) {
+                logger.error("Coach login: CRM unreachable during pending-deletion check for {}", username, e);
+                return authError(AuthErrorCode.SERVICE_UNAVAILABLE);
+            }
+            if (!credentialsValid) {
+                recordLoginFailure(username, clientIp);
+                return authError(AuthErrorCode.INVALID_CREDENTIALS);
+            }
+            clearLoginFailures(username, clientIp);
+            return pendingDeletionResponseOrNull(coach.getUsername());
         }
 
         // Look up CRM registration to get the coach's team UUID

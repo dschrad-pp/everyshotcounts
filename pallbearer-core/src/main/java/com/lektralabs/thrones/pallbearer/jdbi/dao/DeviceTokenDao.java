@@ -23,4 +23,7 @@ public interface DeviceTokenDao {
 
     @SqlUpdate("deleteByUserId")
     void deleteByUserId(@Bind("userId") UUID userId, @Bind("platform") String platform);
+
+    @SqlUpdate("deleteAllByUserId")
+    int deleteAllByUserId(@Bind("userId") UUID userId);
 }

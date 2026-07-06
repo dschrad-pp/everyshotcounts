@@ -25,6 +25,9 @@ public class UserRow implements Serializable {
     private String statusCode;
     private Long creationDate;
     private Long modificationDate;
+    // Account-deletion grace period (epoch millis, both null unless deletion is pending)
+    private Long deletionRequestedAt;
+    private Long purgeAfter;
     private UUID createdById;
     private UUID modifiedById;
     private Integer version;

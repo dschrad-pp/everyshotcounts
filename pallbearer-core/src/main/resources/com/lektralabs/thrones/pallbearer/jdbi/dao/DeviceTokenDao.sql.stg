@@ -24,3 +24,8 @@ deleteByUserId() ::= <<
      WHERE user_id = :userId
        AND platform = :platform
 >>
+
+deleteAllByUserId() ::= <<
+    DELETE FROM t_device_token
+     WHERE user_id = :userId
+>>

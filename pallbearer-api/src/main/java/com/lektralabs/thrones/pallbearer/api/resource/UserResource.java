@@ -117,6 +117,22 @@ public class UserResource {
     @PermitAll
     public Response registration(@PathParam("includeKeycloak") boolean includeKeycloak, RegisterUserPartial registerUserPartial) {
         try {
+            // Signing up with the email of an account inside its 30-day deletion grace period:
+            // surface the specific state instead of a generic uniqueness error, so the app can
+            // steer the user to log in and restore instead.
+            String email = registerUserPartial != null ? registerUserPartial.getEmail() : null;
+            boolean pendingDeletion = email != null && userService.findByEmail(email)
+                    .map(existing -> existing.getDeletionRequestedAt() != null)
+                    .orElse(false);
+            if (pendingDeletion) {
+                return Response.status(HttpStatus.SC_CONFLICT)
+                        .entity(new GenericApiResponse<>(HttpStatus.SC_CONFLICT,
+                                "ACCOUNT_PENDING_DELETION",
+                                "This account is pending deletion. Log in to restore it.",
+                                null))
+                        .build();
+            }
+
             userService.registerUser(registerUserPartial, includeKeycloak);
             if (includeKeycloak) {
                 OpenIdResponse openIdResponse = keycloakProvider.getUserAccessToken(registerUserPartial.getUsername(), registerUserPartial.getPassword());

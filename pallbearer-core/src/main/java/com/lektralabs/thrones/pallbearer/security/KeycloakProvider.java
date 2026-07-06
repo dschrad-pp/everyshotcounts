@@ -300,6 +300,85 @@ public class KeycloakProvider {
         }
     }
 
+    /**
+     * Revokes every active session (and with them the refresh tokens) for a user via the
+     * admin logout endpoint. Used when an account enters the deletion grace period: the
+     * Keycloak user stays ENABLED so the password remains verifiable for the restore flow;
+     * only sessions are cut, and the pending-deletion filter bounces any surviving access token.
+     */
+    public void logoutAllSessions(UUID keycloakId) {
+        if (keycloakId == null) {
+            throw new IllegalArgumentException("Keycloak id cannot be null");
+        }
+        try (ResteasyClient client = new ResteasyClientBuilderImpl().build()) {
+            OpenIdResponse securityResponse = getAdminAccessToken();
+            String token = securityResponse.getAccessToken();
+            String url = String.format("%s/%s/logout", KeycloakConstants.USER_URL, keycloakId);
+            ResteasyWebTarget target = client.target(url);
+            target.register((ClientRequestFilter) ctx -> ctx.getHeaders()
+                    .add(KeycloakConstants.AUTH_HEADER, KeycloakConstants.AUTH_BEARER + token));
+            Response response = target.request(MediaType.APPLICATION_JSON)
+                    .post(Entity.entity("", MediaType.APPLICATION_JSON));
+            try {
+                if (response.getStatus() < 200 || response.getStatus() > 300) {
+                    String errorBody = getResponseBody(response);
+                    throw new IllegalArgumentException("Couldn't logout sessions for keycloak id [%s]. Status: %d, Error: %s"
+                            .formatted(keycloakId, response.getStatus(), errorBody));
+                }
+                logger.info("Revoked all Keycloak sessions for user {}", keycloakId);
+            } finally {
+                response.close();
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = "Error revoking Keycloak sessions for user " + keycloakId;
+            logger.error(msg, e);
+            throw new IllegalArgumentException(msg, e);
+        }
+    }
+
+    /**
+     * Permanently deletes a Keycloak user. Only called by the account purge job after the
+     * 30-day grace period; during grace the user must stay enabled for the restore flow.
+     * A 404 is treated as success so the purge is idempotent / crash-resumable.
+     */
+    public void deleteUser(UUID keycloakId) {
+        if (keycloakId == null) {
+            throw new IllegalArgumentException("Keycloak id cannot be null");
+        }
+        try (ResteasyClient client = new ResteasyClientBuilderImpl().build()) {
+            OpenIdResponse securityResponse = getAdminAccessToken();
+            String token = securityResponse.getAccessToken();
+            String url = String.format("%s/%s", KeycloakConstants.USER_URL, keycloakId);
+            ResteasyWebTarget target = client.target(url);
+            target.register((ClientRequestFilter) ctx -> ctx.getHeaders()
+                    .add(KeycloakConstants.AUTH_HEADER, KeycloakConstants.AUTH_BEARER + token));
+            Response response = target.request(MediaType.APPLICATION_JSON).delete();
+            try {
+                int status = response.getStatus();
+                if (status == 404) {
+                    logger.info("Keycloak user {} already deleted", keycloakId);
+                    return;
+                }
+                if (status < 200 || status > 300) {
+                    String errorBody = getResponseBody(response);
+                    throw new IllegalArgumentException("Couldn't delete keycloak user [%s]. Status: %d, Error: %s"
+                            .formatted(keycloakId, status, errorBody));
+                }
+                logger.info("Deleted Keycloak user {}", keycloakId);
+            } finally {
+                response.close();
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            String msg = "Error deleting Keycloak user " + keycloakId;
+            logger.error(msg, e);
+            throw new IllegalArgumentException(msg, e);
+        }
+    }
+
     public void registerUser(RegisterUserPartial registerUserPartial) {
         ResteasyClient client = null;
         Response response = null;

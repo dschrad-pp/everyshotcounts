@@ -521,6 +521,16 @@ public class UserService implements CoreConstants, UserPropertyConstants {
         return userDao.findAllBasic();
     }
 
+    /** Marks the account pending deletion (both epoch millis) or clears the state (both null). */
+    public int updateDeletionState(UUID userId, Long deletionRequestedAt, Long purgeAfter) {
+        return userDao.updateDeletionState(userId, deletionRequestedAt, purgeAfter);
+    }
+
+    /** Users whose 30-day grace period has expired and are due to be purged. */
+    public List<UserRow> findPendingPurge(long now) {
+        return userDao.findPendingPurge(now);
+    }
+
     private UserRow createUser(RegisterUserPartial registerUserPartial) {
         try {
             UUID contactId = UUID.randomUUID();

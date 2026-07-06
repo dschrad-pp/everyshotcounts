@@ -53,6 +53,23 @@ public interface UserDao {
     @SqlUpdate("delete")
     int delete(UUID id);
 
+    /**
+     * Sets or clears the account-deletion grace-period flags. Pass both values to mark the
+     * account pending deletion, or both nulls to restore it. Deliberately not part of the
+     * versioned {@code update} statement so login-time row updates can't race the flags.
+     */
+    @UseStringTemplateSqlLocator
+    @SqlUpdate("updateDeletionState")
+    int updateDeletionState(@Bind("id") UUID id,
+            @Bind("deletionRequestedAt") Long deletionRequestedAt,
+            @Bind("purgeAfter") Long purgeAfter);
+
+    /** Users whose grace period has ended (purge_after <= now) — input for the purge cron. */
+    @RegisterBeanMapper(UserRow.class)
+    @UseStringTemplateSqlLocator
+    @SqlQuery("selectPendingPurge")
+    java.util.List<UserRow> findPendingPurge(@Bind("now") long now);
+
     @UseStringTemplateSqlLocator
     @SqlUpdate("updateMetadata")
     int updateMetadata(@Bind("userId") UUID userId, @Bind("metadata") String metadata);
