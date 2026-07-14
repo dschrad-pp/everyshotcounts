@@ -139,3 +139,22 @@ FROM (
 GROUP BY local_date
 ORDER BY local_date;
 >>
+
+<!
+  Most recent completion submission per athlete, for the coach roster's
+  "last active" badge. One batched GROUP BY for the whole roster — deliberately
+  not a per-athlete query (that would be an N+1 on every roster load).
+
+  recorded_at is 'timestamp without time zone' holding UTC wall-clock, so
+  formatting it with a literal trailing Z yields a correct ISO8601 UTC instant
+  string, matching how CoachNotificationResource serializes completedAt.
+  Athletes with no history are simply absent (callers map absence to null).
+!>
+lastActivityByUserIds(userIds) ::=
+<<
+SELECT user_id,
+       to_char(MAX(recorded_at), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS last_active_at
+FROM t_drill_attempt_history
+WHERE user_id IN (<userIds>)
+GROUP BY user_id;
+>>

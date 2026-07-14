@@ -46,6 +46,9 @@ public class CoachDrillService {
     @Inject
     AthleteUserPropertyManager athleteUserPropertyManager;
 
+    @Inject
+    DrillAttemptHistoryService drillAttemptHistoryService;
+
     CoachDao coachDao;
     UserPropertyDao userPropertyDao;
     UserGroupPropertyDao userGroupPropertyDao;
@@ -105,6 +108,10 @@ public class CoachDrillService {
         Map<UUID, List<UserGroupPropertyRow>> userGroupPropertiesMap = userGroupProperties.stream()
                 .collect(Collectors.groupingBy(UserGroupPropertyRow::getUserId));
 
+        // Latest completion per athlete for the roster's "last active" badge —
+        // one batched query for the whole roster, not a per-athlete fan-out.
+        Map<UUID, String> lastActivityMap = drillAttemptHistoryService.getLastActivityByUserIds(athleteUserIds);
+
         athleteDetails.forEach(athleteDetail -> {
             List<UserPropertyRow> propertiesForThisAthlete = userPropertiesMap.getOrDefault(athleteDetail.getUserId(),
                     List.of());
@@ -141,6 +148,8 @@ public class CoachDrillService {
 
             athleteDetail.setGroupProperties(groupProperties);
             athleteDetail.setUserProperties(camelCaseUserProperties);
+            // Null when the athlete has never completed a drill; the client hides the badge.
+            athleteDetail.setLastActiveAt(lastActivityMap.get(athleteDetail.getUserId()));
         });
 
         return athleteDetails;

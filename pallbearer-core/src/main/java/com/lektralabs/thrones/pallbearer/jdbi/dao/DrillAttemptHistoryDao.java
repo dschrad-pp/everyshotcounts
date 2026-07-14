@@ -1,6 +1,7 @@
 package com.lektralabs.thrones.pallbearer.jdbi.dao;
 
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.ActivityDay;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.UserLastActivity;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -80,4 +81,15 @@ public interface DrillAttemptHistoryDao {
                                     @Bind("fromDate") LocalDate fromDate,
                                     @Bind("toDate") LocalDate toDate,
                                     @Bind("tz") String tz);
+
+    /**
+     * Latest completion timestamp per athlete, batched for the coach roster's
+     * "last active" badge — one GROUP BY round-trip instead of a per-athlete
+     * N+1. Callers must guard against an empty id list (the SQL would emit an
+     * invalid {@code IN ()}). Athletes with no history are absent from the result.
+     */
+    @UseStringTemplateSqlLocator
+    @SqlQuery("lastActivityByUserIds")
+    @RegisterBeanMapper(UserLastActivity.class)
+    List<UserLastActivity> lastActivityByUserIds(@BindList("userIds") List<UUID> userIds);
 }

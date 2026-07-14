@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import com.lektralabs.thrones.pallbearer.jdbi.JdbiProvider;
 import com.lektralabs.thrones.pallbearer.jdbi.dao.DrillAttemptHistoryDao;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.ActivityDay;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.UserLastActivity;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 
 import jakarta.annotation.PostConstruct;
@@ -103,5 +104,20 @@ public class DrillAttemptHistoryService {
     public List<ActivityDay> getActivityByDay(UUID userId, LocalDate fromDate, LocalDate toDate, String tz) {
         logger.debug("Fetching activity heatmap for userId={} from {} to {} tz={}", userId, fromDate, toDate, tz);
         return drillAttemptHistoryDao.activityByDay(userId, fromDate, toDate, tz);
+    }
+
+    /**
+     * Latest completion instant per athlete (ISO8601 UTC string), batched — one
+     * round-trip for the whole roster, feeding each row's {@code lastActiveAt}.
+     * Athletes who have never submitted a completion are absent from the map
+     * (callers map absence to null so the client hides the badge).
+     */
+    public Map<UUID, String> getLastActivityByUserIds(List<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        logger.debug("Batch-fetching last activity for {} userIds", userIds.size());
+        return drillAttemptHistoryDao.lastActivityByUserIds(userIds).stream()
+                .collect(Collectors.toMap(UserLastActivity::getUserId, UserLastActivity::getLastActiveAt));
     }
 }
