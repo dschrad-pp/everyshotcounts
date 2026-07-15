@@ -74,6 +74,10 @@ public class TeamService extends TeamBaseService {
         });
     }
 
+    public boolean isUserOnTeam(UUID teamId, UUID userId) {
+        return teamDao.isUserOnTeam(teamId, userId);
+    }
+
     public boolean removeUserFromTeam(UUID teamId, UUID userId) {
         return teamDao.removeUserFromTeam(teamId, userId) > 0;
     }

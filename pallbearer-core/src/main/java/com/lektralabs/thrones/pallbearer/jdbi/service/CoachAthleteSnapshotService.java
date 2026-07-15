@@ -11,6 +11,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamAthleteStatsRow;
 import com.lektralabs.thrones.pallbearer.manager.AthleteMetricManager;
 
 import jakarta.annotation.PostConstruct;
@@ -87,6 +88,20 @@ public class CoachAthleteSnapshotService {
     public AthleteSnapshotStatsRow getAthleteStats(UUID athleteId) {
         UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
         return snapshotDao.getAthleteStats(athleteId, difficultyGroupId);
+    }
+
+    /**
+     * Whole-roster make/attempt totals for every athlete on the coach's team, in a
+     * single batched query — the replacement for calling {@link #getAthleteStats}
+     * once per athlete (N+1). Per-athlete numbers use the same semantics as the
+     * individual snapshot: scoped to that athlete's active difficulty group and
+     * summed per round from the attempt history. Athletes with no drill data are
+     * still returned with zeroed totals so the caller sees the full roster.
+     */
+    public List<TeamAthleteStatsRow> getTeamStats(UUID coachId) {
+        return snapshotDao.getTeamStatsByCoachId(coachId,
+                UserPropertyConstants.USER_DRILL_GROUP_KEY,
+                UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY);
     }
 
     public List<SkillBreakdownRow> getSkillBreakdown(UUID athleteId) {

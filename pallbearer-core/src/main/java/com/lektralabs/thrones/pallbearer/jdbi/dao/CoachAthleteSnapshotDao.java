@@ -5,6 +5,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamAthleteStatsRow;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindList;
@@ -22,6 +23,13 @@ public interface CoachAthleteSnapshotDao {
     AthleteSnapshotStatsRow getAthleteStats(
             @Bind("athleteId") UUID athleteId,
             @Bind("difficultyGroupId") UUID difficultyGroupId);
+
+    @RegisterBeanMapper(TeamAthleteStatsRow.class)
+    @SqlQuery("getTeamStatsByCoachId")
+    List<TeamAthleteStatsRow> getTeamStatsByCoachId(
+            @Bind("coachId") UUID coachId,
+            @Bind("drillGroupKey") String drillGroupKey,
+            @Bind("orderIndexKey") String orderIndexKey);
 
     @RegisterBeanMapper(SkillBreakdownRow.class)
     @SqlQuery("getSkillBreakdown")

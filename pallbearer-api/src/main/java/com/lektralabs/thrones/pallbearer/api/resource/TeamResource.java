@@ -102,11 +102,19 @@ public class TeamResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response removeTeamMember(@PathParam("teamId") UUID teamId, @PathParam("userId") UUID userId) {
         CurrentUser currentUser = userService.getCurrentUser();
-        // Athletes can only remove themselves — coaches/admins can remove anyone
-        boolean isAthlete = "ATHLETE".equalsIgnoreCase(currentUser.getRole());
-        if (isAthlete && !currentUser.getId().equals(userId)) {
+        // Athletes can only remove themselves; coaches can only remove members of
+        // a team they themselves belong to; admins can remove anyone.
+        String role = currentUser.getRole();
+        if ("ATHLETE".equalsIgnoreCase(role) && !currentUser.getId().equals(userId)) {
             return Response.status(Response.Status.FORBIDDEN)
                     .entity(Map.of("error", "Athletes can only remove themselves from a team"))
+                    .build();
+        }
+        if ("COACH".equalsIgnoreCase(role)
+                && !currentUser.getId().equals(userId)
+                && !teamService.isUserOnTeam(teamId, currentUser.getId())) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(Map.of("error", "Coaches can only remove members of their own team"))
                     .build();
         }
         boolean removed = teamService.removeUserFromTeam(teamId, userId);

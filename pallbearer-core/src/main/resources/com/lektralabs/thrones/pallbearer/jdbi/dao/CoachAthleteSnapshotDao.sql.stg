@@ -70,6 +70,87 @@ CROSS JOIN streaks s
 CROSS JOIN rounds r
 >>
 
+getTeamStatsByCoachId(coachId, drillGroupKey, orderIndexKey) ::= <<
+<! Whole-roster make/attempt totals in ONE query — the batch replacement for the
+   per-athlete snapshot fan-out the coach Team tab used (N+1). Semantics match
+   getAthleteStats exactly: per-athlete totals are scoped to that athlete's ACTIVE
+   difficulty (drill group), and shots are summed per ROUND from
+   t_drill_attempt_history with a COALESCE fallback to the t_drill summary row for
+   drills with no history (see getAthleteStats note).
+
+   roster: same membership joins as CoachDao.selectAllAthletesAssignedToCoach —
+   athletes sharing a team with the coach — so this endpoint can never disagree
+   with the roster endpoint about who is on the team. Athletes with no drills
+   still emit a row (LEFT JOIN) with zeroed totals.
+
+   active_group: SQL mirror of resolveActiveDifficultyGroupId — the athlete's
+   user.drill.group property when it holds a valid UUID, else the lowest-order
+   drill group. The regex guard replicates the Java try/catch on UUID.fromString.
+
+   levelOrderIndex: the active group's user.drill.group.order.index, float-formatted
+   in the DB ("2.0"), truncated like the Java (int) Double.parseDouble; 0 when the
+   property is missing/unparseable, matching the roster payload's client fallback. !>
+WITH roster AS (
+    SELECT DISTINCT au.id AS user_id
+    FROM t_user au
+    JOIN t_user_role_xref aur ON au.id = aur.user_id
+    JOIN t_role ar          ON aur.role_id = ar.id
+    JOIN t_team_user_xref atux ON au.id = atux.user_id
+    JOIN t_team_user_xref ctux ON atux.team_id = ctux.team_id
+    JOIN t_user_role_xref cur ON ctux.user_id = cur.user_id
+    JOIN t_role cr          ON cur.role_id = cr.id
+    WHERE ar.name = 'ATHLETE'
+      AND cr.name = 'COACH'
+      AND ctux.user_id = :coachId
+),
+lowest_group AS (
+    SELECT id
+      FROM t_drill_group
+     ORDER BY drill_group_order ASC NULLS LAST, id ASC
+     LIMIT 1
+),
+active_group AS (
+    SELECT r.user_id,
+           COALESCE(
+               (SELECT up.property_value::uuid
+                  FROM t_user_property up
+                 WHERE up.user_id = r.user_id
+                   AND up.property_key = :drillGroupKey
+                   AND up.property_value ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+                 LIMIT 1),
+               (SELECT id FROM lowest_group)
+           ) AS group_id
+    FROM roster r
+),
+per_round AS (
+    SELECT d.user_id,
+           COALESCE(h.makes_reported,    d.makes_reported)    AS makes,
+           COALESCE(h.attempts_reported, d.attempts_reported) AS attempts
+    FROM t_drill d
+    JOIN t_drill_item di ON di.id = d.drill_item_id
+    JOIN active_group ag ON ag.user_id = d.user_id
+                        AND di.drill_group_id = ag.group_id
+    LEFT JOIN t_drill_attempt_history h ON h.drill_id = d.id
+)
+SELECT
+    ag.user_id                                                  AS "userId",
+    COALESCE(SUM(pr.makes), 0)::INTEGER                         AS "totalMakes",
+    COALESCE(SUM(pr.attempts), 0)::INTEGER                      AS "totalAttempts",
+    COUNT(CASE WHEN pr.attempts > 0 THEN 1 END)::INTEGER        AS "sessionCount",
+    COALESCE((
+        SELECT TRUNC(ugp.property_value::NUMERIC)::INTEGER
+          FROM t_user_drill_group_property ugp
+         WHERE ugp.user_id = ag.user_id
+           AND ugp.drill_group_id = ag.group_id
+           AND ugp.property_key = :orderIndexKey
+           AND ugp.property_value ~ '^[0-9]+([.][0-9]+)?$'
+         LIMIT 1
+    ), 0)                                                       AS "levelOrderIndex"
+FROM active_group ag
+LEFT JOIN per_round pr ON pr.user_id = ag.user_id
+GROUP BY ag.user_id
+>>
+
 getSkillBreakdown(athleteId) ::= <<
 WITH tag_map (db_code, skill_code) AS (
     VALUES

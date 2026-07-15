@@ -8,20 +8,24 @@ import java.util.stream.Collectors;
 
 import org.jboss.logging.Logger;
 
+import com.lektralabs.thrones.pallbearer.api.model.display.CurrentUser;
 import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.CoachPartial;
 import com.lektralabs.thrones.pallbearer.api.model.response.AthleteDrillStatsItem;
 import com.lektralabs.thrones.pallbearer.api.model.response.PlayerSnapshotResponse;
+import com.lektralabs.thrones.pallbearer.api.model.response.TeamStatsResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.AthleteSnapshotStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillSkillTagRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamAthleteStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.CoachAthleteSnapshotService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.CoachDrillService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -50,6 +54,9 @@ public class CoachResource {
 
     @Inject
     CoachAthleteSnapshotService snapshotService;
+
+    @Inject
+    UserService userService;
 
     @GET
     @Path("/{coachId}")
@@ -90,6 +97,62 @@ public class CoachResource {
                                 : "Successfully fetched athletes for coach",
                         athletes))
                 .build();
+    }
+
+    @GET
+    @Path("/{coachId}/team/stats")
+    @RolesAllowed({ "ADMIN", "COACH" })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getTeamStats(@PathParam("coachId") UUID coachId) {
+        logger.infof("Fetching batched team stats for coach ID: %s", coachId);
+
+        // A coach can only read their own team's stats; admins can read any.
+        CurrentUser currentUser = userService.getCurrentUser();
+        if (!"ADMIN".equalsIgnoreCase(currentUser.getRole()) && !currentUser.getId().equals(coachId)) {
+            return Response.status(403)
+                    .entity(new GenericApiResponse<>(403, "Team stats not accessible by this user", null))
+                    .build();
+        }
+
+        // One batched query for the whole roster — replaces the client's
+        // per-athlete snapshot fan-out (N+1).
+        List<TeamAthleteStatsRow> rows = snapshotService.getTeamStats(coachId);
+
+        List<TeamStatsResponse.AthleteStats> athletes = rows.stream()
+                .map(row -> TeamStatsResponse.AthleteStats.builder()
+                        .athleteId(row.getUserId().toString())
+                        // Null (not 0%) when the athlete has no sessions, so the
+                        // client renders a placeholder instead of a fake score.
+                        .fgPercent(row.getSessionCount() > 0
+                                ? CoachAthleteSnapshotService.computeMakePercent(
+                                        row.getTotalMakes(), row.getTotalAttempts())
+                                : null)
+                        .sessionCount(row.getSessionCount())
+                        .totalMakes(row.getTotalMakes())
+                        .totalAttempts(row.getTotalAttempts())
+                        .levelOrderIndex(row.getLevelOrderIndex())
+                        .build())
+                .collect(Collectors.toList());
+
+        // Mean of the per-athlete percentages (not attempt-weighted) — the same
+        // definition the client used, so the number doesn't shift on migration.
+        List<Integer> percents = athletes.stream()
+                .map(TeamStatsResponse.AthleteStats::getFgPercent)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        Integer avgFgPercent = percents.isEmpty() ? null
+                : (int) Math.round(percents.stream().mapToInt(Integer::intValue).average().orElse(0));
+
+        int levelsPassed = rows.stream().mapToInt(TeamAthleteStatsRow::getLevelOrderIndex).sum();
+
+        TeamStatsResponse stats = TeamStatsResponse.builder()
+                .athleteCount(athletes.size())
+                .avgFgPercent(avgFgPercent)
+                .levelsPassed(levelsPassed)
+                .athletes(athletes)
+                .build();
+
+        return Response.ok(new GenericApiResponse<>(200, "Success", stats)).build();
     }
 
     @GET
