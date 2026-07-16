@@ -12,6 +12,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamAthleteStatsRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamLeaderboardRow;
 import com.lektralabs.thrones.pallbearer.manager.AthleteMetricManager;
 
 import jakarta.annotation.PostConstruct;
@@ -100,6 +101,18 @@ public class CoachAthleteSnapshotService {
      */
     public List<TeamAthleteStatsRow> getTeamStats(UUID coachId) {
         return snapshotDao.getTeamStatsByCoachId(coachId,
+                UserPropertyConstants.USER_DRILL_GROUP_KEY,
+                UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY);
+    }
+
+    /**
+     * Name + make/attempt totals for every ATHLETE on a team, keyed by the team
+     * itself — the athlete-facing sibling of {@link #getTeamStats(UUID)}. Same
+     * batched single query and the same FG semantics as the individual snapshot.
+     * Authorization (caller must belong to the team) is the resource's job.
+     */
+    public List<TeamLeaderboardRow> getTeamLeaderboard(UUID teamId) {
+        return snapshotDao.getTeamLeaderboardByTeamId(teamId,
                 UserPropertyConstants.USER_DRILL_GROUP_KEY,
                 UserPropertyConstants.USER_DRILL_GROUP_ORDER_INDEX_KEY);
     }

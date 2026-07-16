@@ -6,6 +6,7 @@ import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.DrillStatsRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.ShootingZoneRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.SkillBreakdownRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamAthleteStatsRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamLeaderboardRow;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindList;
@@ -28,6 +29,13 @@ public interface CoachAthleteSnapshotDao {
     @SqlQuery("getTeamStatsByCoachId")
     List<TeamAthleteStatsRow> getTeamStatsByCoachId(
             @Bind("coachId") UUID coachId,
+            @Bind("drillGroupKey") String drillGroupKey,
+            @Bind("orderIndexKey") String orderIndexKey);
+
+    @RegisterBeanMapper(TeamLeaderboardRow.class)
+    @SqlQuery("getTeamLeaderboardByTeamId")
+    List<TeamLeaderboardRow> getTeamLeaderboardByTeamId(
+            @Bind("teamId") UUID teamId,
             @Bind("drillGroupKey") String drillGroupKey,
             @Bind("orderIndexKey") String orderIndexKey);
 

@@ -1,9 +1,14 @@
 package com.lektralabs.thrones.pallbearer.api.resource;
 
 import com.lektralabs.thrones.pallbearer.api.model.display.CurrentUser;
+import com.lektralabs.thrones.pallbearer.api.model.partial.GenericApiResponse;
 import com.lektralabs.thrones.pallbearer.api.model.partial.generated.TeamPartial;
 import com.lektralabs.thrones.pallbearer.api.model.request.JoinTeamRequest;
+import com.lektralabs.thrones.pallbearer.api.model.response.TeamLeaderboardResponse;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
+import com.lektralabs.thrones.pallbearer.jdbi.model.snapshot.TeamLeaderboardRow;
+import com.lektralabs.thrones.pallbearer.jdbi.service.CoachAthleteSnapshotService;
+import com.lektralabs.thrones.pallbearer.jdbi.service.DrillAttemptHistoryService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.TeamService;
 import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 import jakarta.annotation.security.RolesAllowed;
@@ -16,8 +21,12 @@ import jakarta.ws.rs.core.UriInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Path("/api/team")
 public class TeamResource {
@@ -29,6 +38,12 @@ public class TeamResource {
     @Inject
     UserService userService;
 
+    @Inject
+    CoachAthleteSnapshotService snapshotService;
+
+    @Inject
+    DrillAttemptHistoryService drillAttemptHistoryService;
+
     @GET
     @Path("/{teamId}")
     @RolesAllowed({"ADMIN", "ATHLETE", "COACH", "FAN", "USER"})
@@ -37,6 +52,75 @@ public class TeamResource {
         return teamService.findById(teamId)
                 .map(row -> Response.ok(row).build())
                 .orElseGet(() -> Response.noContent().build());
+    }
+
+    @GET
+    @Path("/{teamId}/leaderboard")
+    @RolesAllowed({"ADMIN", "ATHLETE", "COACH"})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getTeamLeaderboard(@PathParam("teamId") UUID teamId) {
+        // Membership is the authorization: athletes and coaches may only read the
+        // leaderboard of a team they currently belong to (admins any). Leaving the
+        // team deletes the membership row, which revokes access here immediately.
+        CurrentUser currentUser = userService.getCurrentUser();
+        if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())
+                && !teamService.isUserOnTeam(teamId, currentUser.getId())) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(new GenericApiResponse<>(403, "Leaderboard is only visible to members of this team", null))
+                    .build();
+        }
+
+        List<TeamLeaderboardRow> rows = snapshotService.getTeamLeaderboard(teamId);
+
+        Map<UUID, String> lastActivityByUserId = drillAttemptHistoryService.getLastActivityByUserIds(
+                rows.stream().map(TeamLeaderboardRow::getUserId).collect(Collectors.toList()));
+
+        List<TeamLeaderboardResponse.Entry> entries = rows.stream()
+                .map(row -> TeamLeaderboardResponse.Entry.builder()
+                        .athleteId(row.getUserId().toString())
+                        .name((row.getFirstName() + " " + row.getLastName()).trim())
+                        // Null (not 0%) when the athlete has no sessions, so the
+                        // client renders a placeholder instead of a fake score.
+                        .fgPercent(row.getSessionCount() > 0
+                                ? CoachAthleteSnapshotService.computeMakePercent(
+                                        row.getTotalMakes(), row.getTotalAttempts())
+                                : null)
+                        .sessionCount(row.getSessionCount())
+                        .levelOrderIndex(row.getLevelOrderIndex())
+                        .lastActiveAt(lastActivityByUserId.get(row.getUserId()))
+                        .build())
+                // Best FG% first, no-session athletes last; ties broken by level then
+                // name so the order is stable across refreshes.
+                .sorted(Comparator
+                        .comparing(TeamLeaderboardResponse.Entry::getFgPercent,
+                                Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(TeamLeaderboardResponse.Entry::getLevelOrderIndex,
+                                Comparator.reverseOrder())
+                        .thenComparing(TeamLeaderboardResponse.Entry::getName,
+                                String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+        for (int i = 0; i < entries.size(); i++) {
+            entries.get(i).setRank(i + 1);
+        }
+
+        // Same aggregate definitions as the coach team-stats endpoint (mean of
+        // per-athlete percentages, not attempt-weighted) so the two screens agree.
+        List<Integer> percents = entries.stream()
+                .map(TeamLeaderboardResponse.Entry::getFgPercent)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        Integer avgFgPercent = percents.isEmpty() ? null
+                : (int) Math.round(percents.stream().mapToInt(Integer::intValue).average().orElse(0));
+        int levelsPassed = entries.stream().mapToInt(TeamLeaderboardResponse.Entry::getLevelOrderIndex).sum();
+
+        TeamLeaderboardResponse leaderboard = TeamLeaderboardResponse.builder()
+                .athleteCount(entries.size())
+                .avgFgPercent(avgFgPercent)
+                .levelsPassed(levelsPassed)
+                .entries(entries)
+                .build();
+
+        return Response.ok(new GenericApiResponse<>(200, "Success", leaderboard)).build();
     }
 
     @GET
