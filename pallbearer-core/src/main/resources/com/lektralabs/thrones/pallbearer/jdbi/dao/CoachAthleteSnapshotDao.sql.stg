@@ -148,7 +148,7 @@ SELECT
     ), 0)                                                       AS "levelOrderIndex"
 FROM active_group ag
 LEFT JOIN per_round pr ON pr.user_id = ag.user_id
-GROUP BY ag.user_id
+GROUP BY ag.user_id, ag.group_id
 >>
 
 getTeamLeaderboardByTeamId(teamId, drillGroupKey, orderIndexKey) ::= <<
@@ -225,7 +225,7 @@ FROM active_group ag
 JOIN t_user u ON u.id = ag.user_id
 LEFT JOIN t_contact c ON c.id = u.contact_id
 LEFT JOIN per_round pr ON pr.user_id = ag.user_id
-GROUP BY ag.user_id, c.first_name, c.last_name
+GROUP BY ag.user_id, ag.group_id, c.first_name, c.last_name
 >>
 
 getSkillBreakdown(athleteId) ::= <<
