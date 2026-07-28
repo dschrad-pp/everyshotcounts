@@ -9,6 +9,12 @@ target/
 # Compiled class files
 *.class
 
+# Local-build scratch. The pallbearer/media source package is not in git yet, so
+# pallbearer-core cannot compile on a clean machine. To build pallbearer-api locally,
+# drop the pallbearer-core jar built on EC2 in here and mvn install:install-file it.
+# Never commit these — EC2 builds from source.
+local-libs/
+
 # IDE files
 .idea/
 *.iml

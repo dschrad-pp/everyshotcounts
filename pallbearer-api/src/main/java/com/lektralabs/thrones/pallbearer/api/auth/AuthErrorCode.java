@@ -32,6 +32,36 @@ public enum AuthErrorCode {
     /** Authenticated but the account has no paid/trial entitlement for this app. */
     PAYMENT_REQUIRED(403, "Payment required to access this app"),
 
+    /**
+     * Google sign-in only. The Google identity is genuine but no ESC account exists for it.
+     * Sign-up lives on the web CRM, so the app deep-links there rather than showing a dead end.
+     * Not a failed credential — never counted against the brute-force limiter.
+     */
+    NO_ACCOUNT(404, "No ESC account found for this Google account. Sign up at everyshotcounts.ai"),
+
+    /**
+     * Google sign-in only. An ESC account has this email but Google is not connected to it.
+     * Deliberately NOT auto-linked: the web flow requires the account's password before
+     * connecting Google, because a wrong link hands over someone's profile, payment state and —
+     * for athletes — a minor's date of birth.
+     */
+    NOT_LINKED(409, "This email uses a password. Sign in with your password, or connect Google on the web."),
+
+    /** The account exists and is linked, but has been deactivated in the CRM. */
+    ACCOUNT_INACTIVE(403, "This account is inactive. Please contact support."),
+
+    /**
+     * Entitlement lapsed: {@code payment_status} still reads as paid/trial but
+     * {@code subscription_end_date} is in the past. Distinct from {@link #PAYMENT_REQUIRED} so
+     * the app can say "renew" rather than "pay".
+     *
+     * <p>Currently returned ONLY by {@code /api/sso/google-login}, and only when
+     * {@code auth.subscription.enddate.enforced} is true. Before returning it from
+     * {@code /api/sso/crm-login}, confirm the shipped iOS build degrades gracefully on an
+     * unknown {@code error_code} — see todo.md, 07/28/26.
+     */
+    SUBSCRIPTION_EXPIRED(403, "Your subscription has ended. Renew to keep using the app."),
+
     /** Too many failed attempts for this account or IP; see Retry-After header / retry_after_seconds. */
     TOO_MANY_ATTEMPTS(429, "Too many login attempts. Please wait before trying again."),
 

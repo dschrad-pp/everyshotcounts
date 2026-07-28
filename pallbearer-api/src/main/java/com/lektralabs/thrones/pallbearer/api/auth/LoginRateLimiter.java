@@ -109,6 +109,19 @@ public class LoginRateLimiter {
         return "ip:" + (ip == null ? "unknown" : ip);
     }
 
+    /**
+     * Separate IP bucket for Google sign-in.
+     *
+     * <p>Google sign-in has to throttle on IP alone — the request carries only an opaque ID
+     * token, so the account is unknown until the CRM replies. If those failures fed
+     * {@link #ipKey(String)}, which {@code crm-login} and {@code coach-login} share, one client
+     * hammering Google sign-in would lock out <em>every</em> login method for everyone behind
+     * that NAT — a school or club on one public IP.
+     */
+    public static String googleIpKey(String ip) {
+        return "google-ip:" + (ip == null ? "unknown" : ip);
+    }
+
     private void evictExpired() {
         long now = now();
         counters.entrySet().removeIf(e -> {

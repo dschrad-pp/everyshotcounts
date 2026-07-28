@@ -238,6 +238,124 @@ if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
 }
 
     /**
+     * Verify a Google ID token against the CRM and resolve which ESC account it belongs to.
+     *
+     * <p>The CRM matches on Google's {@code sub} claim, not on email, so a user who changes their
+     * Gmail address still lands on the same ESC account. By the time this returns a valid result
+     * the identity is settled, and the returned username/email are safe to use for the local
+     * {@code t_user} / {@code t_crm_registration} lookups.
+     *
+     * <p>SECURITY: never log {@code idToken}. It is a bearer credential, and because a JWT
+     * payload is only base64 — not encrypted — it also carries the user's email and name as
+     * readable claims. The surrounding file logs liberally; do not follow that pattern here.
+     *
+     * @return a populated {@link CrmGoogleResult}: valid with identity, or invalid with a code.
+     * @throws IOException the CRM was unreachable, returned 5xx, or rejected OUR api key — all
+     *         infrastructure faults, so the caller maps them to SERVICE_UNAVAILABLE rather than
+     *         blaming the user's credentials.
+     */
+    public CrmGoogleResult validateGoogleCredential(String idToken) throws IOException {
+        String url = "https://crm.everyshotcounts.ai/api/crm/validate-google/";
+
+        if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
+            logger.error("CRM iOS API key is not configured");
+            throw new IOException("CRM API key not configured");
+        }
+
+        // Build with the ObjectMapper, never String.format — see the landmine at line ~206.
+        RequestBody body = RequestBody.create(
+            objectMapper.writeValueAsString(Map.of("credential", idToken)),
+            MediaType.parse("application/json")
+        );
+
+        Request request = new Request.Builder()
+            .url(url)
+            .post(body)
+            .addHeader("Authorization", "Bearer " + crmIosApiKey)
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "application/json")
+            .build();
+
+        logger.info("Validating Google credential against CRM");
+        try (Response response = client.newCall(request).execute()) {
+            int status = response.code();
+            String responseBody = response.body() != null ? response.body().string() : "";
+
+            if (status >= 500) {
+                logger.error("CRM validate-google upstream error. Status: " + status);
+                throw new IOException("Unexpected CRM response. Status: " + status);
+            }
+
+            Map<String, Object> parsed;
+            try {
+                parsed = objectMapper.readValue(responseBody, Map.class);
+            } catch (Exception e) {
+                logger.error("CRM validate-google returned unparseable body. Status: " + status);
+                throw new IOException("Unparseable CRM response. Status: " + status, e);
+            }
+
+            if (status == 200) {
+                Object userObj = parsed.get("user");
+                if (!(userObj instanceof Map)) {
+                    throw new IOException("CRM validate-google 200 without a user object");
+                }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> user = (Map<String, Object>) userObj;
+
+                boolean pendingDeletion = Boolean.TRUE.equals(parsed.get("accountPendingDeletion"));
+                Long purgeAfter = parsed.get("purgeAfter") instanceof Number
+                        ? ((Number) parsed.get("purgeAfter")).longValue()
+                        : null;
+
+                logger.info("CRM validate-google succeeded for username: " + str(user.get("username")));
+                return CrmGoogleResult.success(
+                        str(user.get("username")),
+                        str(user.get("email")),
+                        str(user.get("firstName")),
+                        str(user.get("lastName")),
+                        str(user.get("phoneNumber")),
+                        str(user.get("role")),
+                        pendingDeletion,
+                        purgeAfter);
+            }
+
+            String code = str(parsed.get("code"));
+
+            // A 401 with no `code` is the CRM rejecting OUR api key, not the user's token
+            // ({"valid": false, "error": "Unauthorized"}). That is server misconfiguration —
+            // surfacing it as a credential error would blame the user for our mistake, and would
+            // also let a misconfigured key burn down their rate-limit bucket.
+            if (status == 401 && code == null) {
+                logger.error("CRM rejected the iOS API key on validate-google — check crm.ios.api.key");
+                throw new IOException("CRM rejected the configured API key");
+            }
+
+            if (status == 429) {
+                // Our server IP is on IOS_BACKEND_SERVER_IPS, so this should not happen.
+                logger.error("CRM rate-limited validate-google — is our server IP still allowlisted?");
+                throw new IOException("CRM rate limited the request");
+            }
+
+            if (code == null) {
+                logger.error("CRM validate-google returned status " + status + " with no code");
+                throw new IOException("Unexpected CRM response. Status: " + status);
+            }
+
+            logger.info("CRM validate-google rejected the identity. Status: " + status + ", code: " + code);
+            return CrmGoogleResult.failure(code, str(parsed.get("email")));
+
+        } catch (java.net.SocketTimeoutException e) {
+            logger.error("Timeout validating Google credential against CRM", e);
+            throw new IOException("Timeout connecting to CRM API", e);
+        }
+    }
+
+    /** Null-safe String coercion for loosely-typed JSON map values. */
+    private static String str(Object value) {
+        return value != null ? String.valueOf(value) : null;
+    }
+
+    /**
      * Server-to-server: ask the CRM to start the 30-day deletion grace period for the account
      * (Stripe cancel + soft delete on the CRM side). Idempotent on the CRM.
      *
