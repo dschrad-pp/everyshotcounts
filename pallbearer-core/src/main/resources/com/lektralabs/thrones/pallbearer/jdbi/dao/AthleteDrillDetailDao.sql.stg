@@ -1,5 +1,38 @@
 group DrillDetailDao;
 
+getLevelCompletionInputs(athleteUserId, drillGroupId, orderIndex) ::= <<
+<! Just enough to count passed-vs-total for ONE level. Replaces loading the
+   athlete's entire drill group through getByAthleteAndGroup (8 joins, ~50
+   columns per row, plus the attempt-history round-trip and the unlock pass in
+   AthleteDrillService) purely to compute a percentage.
+
+   Grain is deliberately identical to AthleteDrillDetailRowReducer's key,
+   (drill item, drill row): the same LEFT JOIN on t_drill, so an athlete with
+   two drill rows for one item yields two rows here exactly as it yielded two
+   AthleteDrillDetail entries there. The Java predicate is unchanged and shared
+   (AthleteManagerUtils.isPassed), so the percentage cannot drift from the old
+   path.
+
+   The level filter (di.order_index = :orderIndex) moves out of Java and into
+   SQL — the old code fetched every level in the group and discarded all but
+   one. Rows with a NULL order_index are excluded here; the Java filter used to
+   unbox Integer -> int on them and NPE, so this is strictly safer.
+
+   Indexes: idx_drill_item_drill_group_id on t_drill_item(drill_group_id),
+   idx_drill_user_id on t_drill(user_id). !>
+  SELECT di.level_test           AS "levelTest"
+       , dr.drill_status         AS "drillStatus"
+       , di.passing_score        AS "passingScore"
+       , dr.makes_reported       AS "makesReported"
+       , dr.makes_detected       AS "makesDetected"
+       , (dr.id IS NOT NULL)     AS "drillPresent"
+    FROM t_drill_item di
+    LEFT JOIN t_drill dr ON dr.drill_item_id = di.id
+         AND dr.user_id = :athleteUserId
+   WHERE di.drill_group_id = :drillGroupId
+     AND di.order_index = :orderIndex
+>>
+
 getByAthleteAndDrillItem() ::= <<
   SELECT di.id                       AS "di_drillItemId"
        , di.team_id                  AS "di_teamId"

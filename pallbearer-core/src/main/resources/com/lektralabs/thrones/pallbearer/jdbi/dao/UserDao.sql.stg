@@ -65,6 +65,20 @@ selectByUsername() ::= <<
       LIMIT 1
 >>
 
+selectDeletionStateByUsername() ::= <<
+<! Two columns for the per-request grace check in AccountPendingDeletionFilter.
+   selectByUsername returns the whole user row including avatar_byte_array
+   (BYTEA), which the filter never reads — that blob was being fetched on every
+   authenticated API call. Ordering/LIMIT match selectByUsername so both pick
+   the same row for a duplicated username. !>
+     SELECT deletion_requested_at
+          , purge_after
+       FROM t_user
+      WHERE lower(username) = lower(:username)
+      ORDER BY (keycloak_id = '00000000-0000-0000-0000-000000000000') ASC, version DESC
+      LIMIT 1
+>>
+
 selectByRegistrationCode() ::= <<
      SELECT u.id
           , u.email

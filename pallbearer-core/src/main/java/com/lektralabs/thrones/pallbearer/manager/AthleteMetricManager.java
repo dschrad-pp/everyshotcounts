@@ -2,6 +2,7 @@ package com.lektralabs.thrones.pallbearer.manager;
 
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.LevelCompletionInputRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.AthleteDrillService;
 import com.lektralabs.thrones.pallbearer.manager.utils.AthleteManagerUtils;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -63,18 +64,45 @@ public class AthleteMetricManager {
      * @return Current-level completion percent in [0, 100]
      */
     public int computeCurrentLevelCompletionPercent(UUID athleteUserId) {
-        UUID currentDrillGroupId = athleteUserPropertyManager
-                .activeDrillGroup(athleteUserId);
+        return computeCurrentLevelCompletionPercent(athleteUserId,
+                athleteUserPropertyManager.activeDrillGroup(athleteUserId));
+    }
+
+    /**
+     * As {@link #computeCurrentLevelCompletionPercent(UUID)}, but for callers
+     * that have ALREADY resolved the athlete's active drill group.
+     * <p>
+     * The coach roster endpoint resolves it to name the tier and then called the
+     * single-argument form, which resolved the identical value a second time —
+     * one wasted property query per athlete, per request. Pass it in instead.
+     *
+     * @param athleteUserId       Athlete user ID
+     * @param currentDrillGroupId The athlete's active drill group
+     * @return Current-level completion percent in [0, 100]
+     */
+    public int computeCurrentLevelCompletionPercent(UUID athleteUserId,
+            UUID currentDrillGroupId) {
         int currentOrderIndex = athleteUserPropertyManager
                 .activeDrillGroupOrderIndex(athleteUserId, currentDrillGroupId);
-        List<AthleteDrillDetail> athleteGroupDrillDetails = athleteDrillService
-                .findWithAthleteAndGroup(athleteUserId, currentDrillGroupId,
-                        FindOptions.builder().limit(9999).offset(0).build());
-        List<AthleteDrillDetail> levelDetails = athleteManagerUtils
-                .withOrderIndex(currentDrillGroupId, currentOrderIndex,
-                        athleteGroupDrillDetails);
-        return levelCompletionPercent(
-                athleteManagerUtils.passedCount(levelDetails), levelDetails.size());
+
+        // Counting inputs only — see AthleteDrillService.findLevelCompletionInputs
+        // for why this is not findWithAthleteAndGroup. Grading goes through the
+        // shared AthleteManagerUtils.isPassed rule, so the number is unchanged.
+        List<LevelCompletionInputRow> levelRows = athleteDrillService
+                .findLevelCompletionInputs(athleteUserId, currentDrillGroupId,
+                        currentOrderIndex);
+
+        int passed = (int) levelRows.stream()
+                .filter(row -> athleteManagerUtils.isPassed(
+                        row.getLevelTest(),
+                        row.getDrillStatus(),
+                        row.getPassingScore(),
+                        row.getMakesReported(),
+                        row.getMakesDetected(),
+                        row.isDrillPresent()))
+                .count();
+
+        return levelCompletionPercent(passed, levelRows.size());
     }
 
     /**

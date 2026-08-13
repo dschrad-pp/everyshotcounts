@@ -1,5 +1,6 @@
 package com.lektralabs.thrones.pallbearer.jdbi.dao;
 
+import com.lektralabs.thrones.pallbearer.jdbi.model.UserDeletionStateRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
@@ -34,6 +35,15 @@ public interface UserDao {
     @UseStringTemplateSqlLocator
     @SqlQuery("selectByUsername")
     Optional<UserRow> findByUsername(String username);
+
+    /**
+     * Deletion-grace fields only — for the per-request filter, which must not
+     * pay for the avatar blob {@code selectByUsername} carries.
+     */
+    @RegisterBeanMapper(UserDeletionStateRow.class)
+    @UseStringTemplateSqlLocator
+    @SqlQuery("selectDeletionStateByUsername")
+    Optional<UserDeletionStateRow> findDeletionStateByUsername(String username);
 
     @RegisterBeanMapper(UserRow.class)
     @UseStringTemplateSqlLocator

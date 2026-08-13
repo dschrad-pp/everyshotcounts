@@ -3,6 +3,7 @@ package com.lektralabs.thrones.pallbearer.jdbi.dao;
 import com.lektralabs.thrones.pallbearer.api.util.FindOptions;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDrillDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.LevelCompletionInputRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.UserDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillGroupRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.item.ContactItem;
@@ -21,6 +22,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AthleteDrillDetailDao {
+
+    /**
+     * Passed/total inputs for a single level — the cheap replacement for
+     * loading a whole drill group via {@link #getByAthleteAndGroup} just to
+     * compute level-completion %.
+     */
+    @RegisterBeanMapper(LevelCompletionInputRow.class)
+    @UseStringTemplateSqlLocator
+    @SqlQuery("getLevelCompletionInputs")
+    List<LevelCompletionInputRow> getLevelCompletionInputs(
+            @Bind("athleteUserId") UUID athleteUserId,
+            @Bind("drillGroupId") UUID drillGroupId,
+            @Bind("orderIndex") int orderIndex);
 
     @RegisterBeanMapper(value = AthleteDrillDetail.class, prefix = "di")
     @RegisterBeanMapper(value = DrillDetail.class, prefix = "dr")

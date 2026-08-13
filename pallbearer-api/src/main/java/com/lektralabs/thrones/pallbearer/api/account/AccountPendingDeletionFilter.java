@@ -1,6 +1,6 @@
 package com.lektralabs.thrones.pallbearer.api.account;
 
-import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
+import com.lektralabs.thrones.pallbearer.jdbi.model.UserDeletionStateRow;
 import com.lektralabs.thrones.pallbearer.jdbi.service.UserService;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
@@ -56,9 +56,12 @@ public class AccountPendingDeletionFilter implements ContainerRequestFilter {
             return;
         }
 
-        UserRow user;
+        UserDeletionStateRow user;
         try {
-            Optional<UserRow> maybeUser = userService.findByUsername(principal.getName());
+            // Deletion timestamps only — this runs on every authenticated request,
+            // so it must not drag the user's avatar blob along with it.
+            Optional<UserDeletionStateRow> maybeUser = userService
+                    .findDeletionStateByUsername(principal.getName());
             if (maybeUser.isEmpty()) {
                 return;
             }

@@ -140,7 +140,7 @@ public class CoachDrillService {
             String activeGroupName = DrillGroupConstants.drillGroupIdNameMap
                     .getOrDefault(activeGroupId, activeGroupId.toString());
             int liveLevelPercent = athleteMetricManager
-                    .computeCurrentLevelCompletionPercent(athleteDetail.getUserId());
+                    .computeCurrentLevelCompletionPercent(athleteDetail.getUserId(), activeGroupId);
             groupProperties
                     .computeIfAbsent(activeGroupName, k -> new HashMap<>())
                     .put(UserPropertyConstants.USER_METRIC_DRILL_LEVEL_COMPLETION_PERCENT,

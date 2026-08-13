@@ -517,6 +517,23 @@ public class UserService implements CoreConstants, UserPropertyConstants {
         return userDao.findByUsername(lowercasedUsername);
     }
 
+    /**
+     * Account-deletion grace state for a username, without loading the rest of
+     * the user row.
+     * <p>
+     * For {@code AccountPendingDeletionFilter}, which runs on every
+     * authenticated request: {@link #findByUsername(String)} would also fetch
+     * the user's avatar blob on each one.
+     *
+     * @param username Username (case-insensitive)
+     * @return Deletion timestamps, empty when no such user
+     */
+    public Optional<com.lektralabs.thrones.pallbearer.jdbi.model.UserDeletionStateRow>
+            findDeletionStateByUsername(String username) {
+        String lowercasedUsername = username != null ? username.toLowerCase() : null;
+        return userDao.findDeletionStateByUsername(lowercasedUsername);
+    }
+
     public java.util.List<com.lektralabs.thrones.pallbearer.jdbi.model.BasicUserRow> findAllBasicUsers() {
         return userDao.findAllBasic();
     }

@@ -34,6 +34,7 @@ import java.util.UUID;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.AthleteDetail;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillAttemptHistoryResponse;
 import com.lektralabs.thrones.pallbearer.jdbi.model.detail.DrillDetail;
+import com.lektralabs.thrones.pallbearer.jdbi.model.detail.LevelCompletionInputRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.DrillAttemptHistoryRow;
 import com.lektralabs.thrones.pallbearer.jdbi.model.generated.TagRow;
 
@@ -111,6 +112,27 @@ public class AthleteDrillService {
             UUID drillItemId) {
         return athleteDrillDetailDao
                 .getByAthleteAndDrillItem(athleteUserId, drillItemId);
+    }
+
+    /**
+     * Find the pass/total inputs for ONE level of a drill group — the cheap
+     * path for level-completion %.
+     * <p>
+     * Unlike {@link #findWithAthleteAndGroup} this does no lock pass and no
+     * attempt-history fetch, and it filters to the level in SQL instead of
+     * loading the whole group and discarding the rest. Use it only for
+     * grading/counting; it carries no drill item identity or media.
+     *
+     * @param athleteUserId Athlete user ID
+     * @param drillGroupId  Drill group ID
+     * @param orderIndex    Level order index within the group
+     * @return One row per (drill item, drill) pair at that level
+     */
+    public List<LevelCompletionInputRow> findLevelCompletionInputs(UUID athleteUserId,
+            UUID drillGroupId,
+            int orderIndex) {
+        return athleteDrillDetailDao
+                .getLevelCompletionInputs(athleteUserId, drillGroupId, orderIndex);
     }
 
     /**

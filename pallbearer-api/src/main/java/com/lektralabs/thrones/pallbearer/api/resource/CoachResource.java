@@ -213,21 +213,30 @@ public class CoachResource {
                     .build();
         }
 
-        AthleteSnapshotStatsRow stats = snapshotService.getAthleteStats(athleteId);
+        // Resolve the athlete's active difficulty ONCE. Stats, tier, breakdown and
+        // zones must all span the same tier, and each used to resolve it for
+        // itself — four identical lookups per request, multiplied by every
+        // athlete on screen. (levelProgress deliberately keeps its own
+        // resolution: it falls back to the Beginner constant where this falls
+        // back to the lowest-order group, and those are not always the same row.)
+        UUID difficultyGroupId = snapshotService.resolveActiveDifficultyGroupId(athleteId);
+
+        AthleteSnapshotStatsRow stats = snapshotService.getAthleteStats(athleteId, difficultyGroupId);
         int overallMakePercent = CoachAthleteSnapshotService.computeMakePercent(stats.getTotalMakes(), stats.getTotalAttempts());
 
         String levelLabel = snapshotService.getLevelLabel(athleteId);
-        String difficultyTier = snapshotService.getDifficultyTier(athleteId);
+        String difficultyTier = snapshotService.getDifficultyTierForDifficulty(difficultyGroupId);
         int levelProgress = snapshotService.getLevelProgress(athleteId);
 
-        List<SkillBreakdownRow> skillRows = snapshotService.getSkillBreakdown(athleteId);
+        List<SkillBreakdownRow> skillRows = snapshotService.getSkillBreakdownForDifficulty(athleteId, difficultyGroupId);
         List<PlayerSnapshotResponse.SkillBreakdown> skillBreakdown = skillRows.stream()
                 .map(row -> new PlayerSnapshotResponse.SkillBreakdown(
                         row.getTagCode(),
                         row.getCoveragePercent()))
                 .collect(Collectors.toList());
 
-        List<PlayerSnapshotResponse.ShootingZone> shootingZones = snapshotService.getShootingZones(athleteId).stream()
+        List<PlayerSnapshotResponse.ShootingZone> shootingZones = snapshotService
+                .getShootingZonesForDifficulty(athleteId, difficultyGroupId).stream()
                 .map(zone -> new PlayerSnapshotResponse.ShootingZone(
                         zone.getZoneCode(),
                         CoachAthleteSnapshotService.computeMakePercent(zone.getTotalMakes(), zone.getTotalAttempts()),

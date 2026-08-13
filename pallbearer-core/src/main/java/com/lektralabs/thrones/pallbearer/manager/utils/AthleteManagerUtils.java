@@ -162,14 +162,45 @@ public class AthleteManagerUtils {
      */
     public boolean isPassed(AthleteDrillDetail athleteDrillDetail) {
         Optional<DrillDetail> maybeDrillDetail = athleteDrillDetail.getDrillDetail();
-        if (maybeDrillDetail.isEmpty()) {
+        return isPassed(
+                athleteDrillDetail.getLevelTest(),
+                maybeDrillDetail.map(DrillDetail::getDrillStatus).orElse(null),
+                athleteDrillDetail.getPassingScore(),
+                maybeDrillDetail.map(DrillDetail::getMakesReported).orElse(null),
+                maybeDrillDetail.map(DrillDetail::getMakesDetected).orElse(null),
+                maybeDrillDetail.isPresent());
+    }
+
+    /**
+     * The pass rule itself, over raw field values rather than a loaded
+     * {@link AthleteDrillDetail} graph.
+     * <p>
+     * Extracted so the cheap level-completion query
+     * ({@code LevelCompletionInputRow}) and the full detail objects grade a
+     * drill through the SAME code. Duplicating this rule is how the coach donut
+     * and the athlete's level silently disagree, so there is deliberately only
+     * one copy — {@link #isPassed(AthleteDrillDetail)} delegates here.
+     *
+     * @param levelTest     True for graded "Test" drills
+     * @param drillStatus   Drill status, null when never attempted
+     * @param passingScore  Makes-to-advance threshold, null means none configured
+     * @param makesReported Athlete-corrected score, may be null
+     * @param makesDetected AI-detected score, used when reported is null
+     * @param drillPresent  False when no drill row exists for the item
+     * @return True if the drill was passed
+     */
+    public boolean isPassed(Boolean levelTest,
+            String drillStatus,
+            Integer passingScore,
+            Integer makesReported,
+            Integer makesDetected,
+            boolean drillPresent) {
+        if (!drillPresent) {
             // no drill associated with drill item
             return false;
         }
-        DrillDetail drillDetail = maybeDrillDetail.get();
-        String drillStatus = drillDetail.getDrillStatus();
 
-        if (Boolean.TRUE.equals(athleteDrillDetail.getLevelTest())) {
+        if (Boolean.TRUE.equals(levelTest)) {
             return drillStatus != null
                     && !drillStatus.equals(DrillStatusConstants.NOT_ATTEMPTED);
         }
@@ -179,7 +210,6 @@ public class AthleteManagerUtils {
             return false;
         }
 
-        Integer passingScore = athleteDrillDetail.getPassingScore();
         if (passingScore == null) {
             // No makes-to-advance threshold configured — completion is passing.
             return true;
@@ -188,9 +218,7 @@ public class AthleteManagerUtils {
         // A null reported value means the athlete did not override the
         // AI-detected score, so it falls back to the detected value (mirrors the
         // coach-notification contract).
-        Integer makes = drillDetail.getMakesReported() != null
-                ? drillDetail.getMakesReported()
-                : drillDetail.getMakesDetected();
+        Integer makes = makesReported != null ? makesReported : makesDetected;
         return makes != null && makes >= passingScore;
     }
 

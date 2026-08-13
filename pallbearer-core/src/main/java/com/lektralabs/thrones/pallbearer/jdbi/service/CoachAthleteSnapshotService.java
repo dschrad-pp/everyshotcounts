@@ -87,7 +87,21 @@ public class CoachAthleteSnapshotService {
      * zeroed stats row rather than mixing every tier together.
      */
     public AthleteSnapshotStatsRow getAthleteStats(UUID athleteId) {
-        UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
+        return getAthleteStats(athleteId, resolveActiveDifficultyGroupId(athleteId));
+    }
+
+    /**
+     * As {@link #getAthleteStats(UUID)}, for callers holding an already-resolved
+     * difficulty group.
+     * <p>
+     * The snapshot endpoint needs the same group id for its headline stats, tier
+     * name, skill breakdown and shooting zones. Each of those used to resolve it
+     * independently, so a single snapshot request ran
+     * {@link #resolveActiveDifficultyGroupId(UUID)} five times for one answer.
+     * The {@code …ForDifficulty} overloads let the caller resolve once and pass
+     * it down; the single-argument forms are kept for every other caller.
+     */
+    public AthleteSnapshotStatsRow getAthleteStats(UUID athleteId, UUID difficultyGroupId) {
         return snapshotDao.getAthleteStats(athleteId, difficultyGroupId);
     }
 
@@ -121,7 +135,17 @@ public class CoachAthleteSnapshotService {
         if (!scopeSkillBreakdownByDifficulty) {
             return snapshotDao.getSkillBreakdown(athleteId);
         }
-        UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
+        return getSkillBreakdownForDifficulty(athleteId, resolveActiveDifficultyGroupId(athleteId));
+    }
+
+    /**
+     * As {@link #getSkillBreakdown(UUID)}, for callers holding an
+     * already-resolved difficulty group. Honours the same feature flag.
+     */
+    public List<SkillBreakdownRow> getSkillBreakdownForDifficulty(UUID athleteId, UUID difficultyGroupId) {
+        if (!scopeSkillBreakdownByDifficulty) {
+            return snapshotDao.getSkillBreakdown(athleteId);
+        }
         if (difficultyGroupId == null) {
             // No drill groups exist at all — nothing to scope coverage to. Omit
             // the breakdown rather than silently reverting to the whole-catalog calc.
@@ -138,7 +162,7 @@ public class CoachAthleteSnapshotService {
      * to the lowest-order drill group (Beginner) — never to a whole-catalog calculation.
      * Returns {@code null} only when no drill groups exist at all.
      */
-    UUID resolveActiveDifficultyGroupId(UUID athleteId) {
+    public UUID resolveActiveDifficultyGroupId(UUID athleteId) {
         Optional<UserPropertyRow> maybeGroup = userPropertyService
                 .findByKey(athleteId, UserPropertyConstants.USER_DRILL_GROUP_KEY);
         if (maybeGroup.isPresent()) {
@@ -168,7 +192,14 @@ public class CoachAthleteSnapshotService {
      * When no drill groups exist at all, every zone is returned zeroed.
      */
     public List<ShootingZoneRow> getShootingZones(UUID athleteId) {
-        UUID difficultyGroupId = resolveActiveDifficultyGroupId(athleteId);
+        return getShootingZonesForDifficulty(athleteId, resolveActiveDifficultyGroupId(athleteId));
+    }
+
+    /**
+     * As {@link #getShootingZones(UUID)}, for callers holding an
+     * already-resolved difficulty group.
+     */
+    public List<ShootingZoneRow> getShootingZonesForDifficulty(UUID athleteId, UUID difficultyGroupId) {
         List<ShootingZoneRow> rows = (difficultyGroupId == null)
                 ? Collections.emptyList()
                 : snapshotDao.getShootingZonesByDifficulty(athleteId, difficultyGroupId);
@@ -297,7 +328,14 @@ public class CoachAthleteSnapshotService {
      * back to an empty string when no tier can be resolved.
      */
     public String getDifficultyTier(UUID athleteId) {
-        UUID tierGroupId = resolveActiveDifficultyGroupId(athleteId);
+        return getDifficultyTierForDifficulty(resolveActiveDifficultyGroupId(athleteId));
+    }
+
+    /**
+     * As {@link #getDifficultyTier(UUID)}, for callers holding an
+     * already-resolved difficulty group.
+     */
+    public String getDifficultyTierForDifficulty(UUID tierGroupId) {
         if (tierGroupId == null) {
             return "";
         }
