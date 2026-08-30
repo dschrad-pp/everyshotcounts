@@ -16,12 +16,14 @@ public class CrmApiClient {
     private static final Logger logger = Logger.getLogger(CrmApiClient.class);
 
     // private static final String CRM_BASE_URL = "https://esc-crm-backend.onrender.com/api/v1";
-    private static final String CRM_BASE_URL =  "https://crm.everyshotcounts.ai/api/v1";
+    // Single place to change if the CRM ever moves hosts again.
+    private static final String CRM_HOST = "https://crm.everyshotcountsapp.com";
+    private static final String CRM_BASE_URL =  CRM_HOST + "/api/v1";
     private static final String AUTH_ENDPOINT = "/auth/applogin/";
     private static final String REGISTRATIONS_ENDPOINT = "/registrations/";
     // Server-to-server account deletion endpoints (X-CRM-Api-Key auth, /api/crm prefix)
-    private static final String ACCOUNT_DELETE_URL = "https://crm.everyshotcounts.ai/api/crm/account/delete-request";
-    private static final String ACCOUNT_RESTORE_URL = "https://crm.everyshotcounts.ai/api/crm/account/restore";
+    private static final String ACCOUNT_DELETE_URL = CRM_HOST + "/api/crm/account/delete-request";
+    private static final String ACCOUNT_RESTORE_URL = CRM_HOST + "/api/crm/account/restore";
     @org.eclipse.microprofile.config.inject.ConfigProperty(name = "crm.ios.api.key")
     String crmIosApiKey;
     private final OkHttpClient client;
@@ -187,7 +189,7 @@ public class CrmApiClient {
 
 public boolean validateUserCredentials(String username, String password) throws IOException {
     // Updated endpoint path
-    String url = "https://crm.everyshotcounts.ai/api/v1/auth/validate-credentials/";
+    String url = CRM_BASE_URL + "/auth/validate-credentials/";
     
     // Get CRM API key from environment variable
     // String crmApiKey = System.getenv("CRM_IOS_API_KEY");
@@ -255,7 +257,7 @@ if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
      *         blaming the user's credentials.
      */
     public CrmGoogleResult validateGoogleCredential(String idToken) throws IOException {
-        String url = "https://crm.everyshotcounts.ai/api/crm/validate-google/";
+        String url = CRM_HOST + "/api/crm/validate-google/";
 
         if (crmIosApiKey == null || crmIosApiKey.isBlank()) {
             logger.error("CRM iOS API key is not configured");

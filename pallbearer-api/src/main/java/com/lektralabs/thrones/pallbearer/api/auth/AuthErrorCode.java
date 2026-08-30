@@ -37,7 +37,7 @@ public enum AuthErrorCode {
      * Sign-up lives on the web CRM, so the app deep-links there rather than showing a dead end.
      * Not a failed credential — never counted against the brute-force limiter.
      */
-    NO_ACCOUNT(404, "No ESC account found for this Google account. Sign up at everyshotcounts.ai"),
+    NO_ACCOUNT(404, "No ESC account found for this Google account. Sign up at everyshotcountsapp.com"),
 
     /**
      * Google sign-in only. An ESC account has this email but Google is not connected to it.
