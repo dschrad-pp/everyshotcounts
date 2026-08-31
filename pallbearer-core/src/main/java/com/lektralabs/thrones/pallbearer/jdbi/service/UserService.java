@@ -421,9 +421,31 @@ public class UserService implements CoreConstants, UserPropertyConstants {
                     if (lowerError.contains("email") || lowerError.contains("user exists with same email")) {
                         // User already exists in Keycloak from a previous partial activation.
                         // Look them up and recover the real UUID instead of failing.
+                        //
+                        // Keycloak rejected on EMAIL, so the existing account may well carry a
+                        // different username — searching by username (?username=) returns an empty
+                        // list and the recovery fails, turning a recoverable state into a hard
+                        // EMAIL_COLLISION. Look up by the attribute that actually collided first,
+                        // then fall back to the username lookup so previously-working cases (same
+                        // username, blank email) behave exactly as before.
                         logger.infof("User %s already exists in Keycloak — recovering existing UUID", registerUserPartial.getEmail());
                         try {
-                            FindUserResponse existingKeycloakUser = keycloakProvider.findUser(registerUserPartial);
+                            String collidedEmail = registerUserPartial.getEmail();
+                            FindUserResponse existingKeycloakUser = null;
+
+                            if (collidedEmail != null && !collidedEmail.isBlank()) {
+                                try {
+                                    existingKeycloakUser = keycloakProvider.findUserByEmail(collidedEmail);
+                                } catch (Exception byEmailEx) {
+                                    logger.infof("Keycloak lookup by email failed for %s (%s) — trying username",
+                                            collidedEmail, byEmailEx.getMessage());
+                                }
+                            }
+
+                            if (existingKeycloakUser == null) {
+                                existingKeycloakUser = keycloakProvider.findUser(registerUserPartial);
+                            }
+
                             userRow.setKeycloakId(existingKeycloakUser.getId());
                             userDao.update(userRow);
                             logger.infof("Recovered Keycloak ID %s for user %s", existingKeycloakUser.getId(), userRow.getId());

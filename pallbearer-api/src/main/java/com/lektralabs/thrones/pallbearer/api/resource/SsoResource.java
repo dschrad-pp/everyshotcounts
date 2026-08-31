@@ -12,6 +12,7 @@ import com.lektralabs.thrones.pallbearer.api.model.request.AdminSignupRequest;
 import com.lektralabs.thrones.pallbearer.api.model.request.GoogleLoginRequest;
 import com.lektralabs.thrones.crm.CrmGoogleResult;
 import com.lektralabs.thrones.pallbearer.jdbi.model.UserRow;
+import com.lektralabs.thrones.pallbearer.jdbi.exception.RegistrationException;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -789,6 +790,14 @@ public class SsoResource {
             // not record a failure, and do not let it read to the app as "bad sign-in".
             logger.error("Google login upstream unavailable (user: {})", username, e);
             return authError(AuthErrorCode.SERVICE_UNAVAILABLE);
+        } catch (RegistrationException e) {
+            // Keycloak provisioning could not place this identity — e.g. the email already exists
+            // in Keycloak under an account we failed to recover. Same 500 the generic handler
+            // returned before, but logged distinctly: this is a provisioning fault we can act on,
+            // not an unknown crash, and it must not be lost among unrelated failures.
+            logger.error("Google login: Keycloak provisioning failed for user {} [{}]",
+                    username, e.getMessage(), e);
+            return authError(AuthErrorCode.INTERNAL_ERROR);
         } catch (IllegalArgumentException e) {
             logger.warn("Google login Keycloak error for user {}: {}", username, e.getMessage());
             return authError(AuthErrorCode.INTERNAL_ERROR);
