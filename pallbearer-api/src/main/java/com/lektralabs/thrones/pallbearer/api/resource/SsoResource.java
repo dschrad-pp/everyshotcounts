@@ -768,6 +768,20 @@ public class SsoResource {
             } else {
                 logger.info("Google login: setting throwaway Keycloak password for existing user {}", regUsername);
                 keycloakProvider.changeUserPassword(userRow.getKeycloakId(), password);
+
+                // A pending required action (VERIFY_EMAIL, UPDATE_PASSWORD) makes Keycloak reject
+                // the password grant below with invalid_grant / "Account is not fully set up",
+                // even though the reset above succeeded. The new-user path already clears these
+                // inside registerUserWithKeycloak; the existing-user path did not, so an account
+                // carrying one could never mint a token. Identity is already proven by Google at
+                // this point, so an interactive action cannot be satisfied here anyway.
+                // Non-fatal, matching how registerUserWithKeycloak treats the same call.
+                try {
+                    keycloakProvider.clearRequiredActions(userRow.getKeycloakId());
+                } catch (Exception clearEx) {
+                    logger.warn("Google login: could not clear Keycloak required actions for {} ({})",
+                            regUsername, clearEx.getMessage());
+                }
             }
 
             // Step 12: mint the token, exactly as crm-login does.
